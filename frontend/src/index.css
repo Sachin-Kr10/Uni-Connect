@@ -1,51 +1,129 @@
 @import "tailwindcss";
 
 @theme {
-  --color-primary-50: #f0fdf4;
-  --color-primary-100: #dcfce7;
-  --color-primary-200: #bbf7d0;
-  --color-primary-300: #86efac;
-  --color-primary-400: #4ade80;
-  --color-primary-500: #22c55e;
-  --color-primary-600: #16a34a;
-  --color-primary-700: #15803d;
-  --color-primary-800: #166534;
-  --color-primary-900: #14532d;
+  /* High-Vibrancy Neon Palette (2080) */
+  --color-neon-red: #ff3131;
+  --color-neon-pink: #ff00ff;
+  --color-neon-blue: #00ecff;
+  --color-neon-violet: #9d00ff;
+  --color-neon-yellow: #fff300;
+  --color-neon-orange: #ff9d00;
   
-  --shadow-premium: 0 20px 25px -5px rgb(0 0 0 / 0.1), 0 8px 10px -6px rgb(0 0 0 / 0.1);
-  --shadow-inner-light: inset 0 1px 1px 0 rgb(255 255 255 / 0.15);
+  --color-slate-950: #020617;
+
+  /* Multi-Colored Mixed Shadows */
+  --shadow-glow-pink: 0 0 20px -5px var(--color-neon-pink), 0 0 10px -2px var(--color-neon-pink);
+  --shadow-glow-blue: 0 0 20px -5px var(--color-neon-blue), 0 0 10px -2px var(--color-neon-blue);
+  --shadow-mixed: 10px 10px 20px -5px var(--color-neon-pink), -10px -10px 20px -5px var(--color-neon-blue);
+  --shadow-futuristic: 0 0 40px -10px var(--color-neon-violet), 0 0 20px -5px var(--color-neon-pink);
 }
 
-@utility glass-card {
-  background-color: var(--color-white / 10%);
-  backdrop-filter: blur(24px) saturate(180%);
-  border: 1px solid var(--color-white / 20%);
-  box-shadow: var(--shadow-premium), var(--shadow-inner-light);
-  transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+@utility glass-2080 {
+  background-color: rgb(2 6 23 / 0.6);
+  backdrop-filter: blur(40px) saturate(200%);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  box-shadow: var(--shadow-mixed);
+  position: relative;
+  overflow: hidden;
 }
 
-@utility glass-card-dark {
-  background-color: var(--color-slate-900 / 40%);
-  backdrop-filter: blur(24px) saturate(180%);
-  border: 1px solid var(--color-slate-700 / 30%);
-  box-shadow: var(--shadow-2xl), var(--shadow-inner-light);
+@utility glass-2080::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(135deg, transparent, rgba(255, 255, 255, 0.05), transparent);
+  pointer-events: none;
 }
 
-@utility text-gradient {
+@utility neon-border-pink {
+  border: 1px solid var(--color-neon-pink);
+  box-shadow: 0 0 15px -3px var(--color-neon-pink);
+}
+
+@utility neon-border-blue {
+  border: 1px solid var(--color-neon-blue);
+  box-shadow: 0 0 15px -3px var(--color-neon-blue);
+}
+
+@utility text-neon-gradient {
   background-clip: text;
   color: transparent;
-  background-image: linear-gradient(to right, var(--color-primary-600), var(--color-primary-400));
+  background-image: linear-gradient(to right, var(--color-neon-pink), var(--color-neon-violet), var(--color-neon-blue));
 }
 
-:root {
-  font-family: 'Inter', system-ui, -apple-system, sans-serif;
-  -webkit-font-smoothing: antialiased;
-  -moz-osx-font-smoothing: grayscale;
+@utility bg-cyber-mesh {
+  background-color: var(--color-slate-950);
+  background-image: 
+    radial-gradient(at 0% 0%, rgba(255, 49, 49, 0.15) 0px, transparent 50%),
+    radial-gradient(at 100% 0%, rgba(0, 236, 255, 0.15) 0px, transparent 50%),
+    radial-gradient(at 100% 100%, rgba(157, 0, 255, 0.15) 0px, transparent 50%),
+    radial-gradient(at 0% 100%, rgba(255, 157, 0, 0.15) 0px, transparent 50%);
 }
 
-body {
-  margin: 0;
-  min-height: 100vh;
-  background-color: var(--color-slate-50);
+@utility cyber-input {
+  background-color: rgb(2 6 23 / 0.4);
+  border: 1px solid rgba(255, 255, 255, 0.05);
+  border-radius: 1rem;
+  padding: 0.75rem 1rem 0.75rem 2.75rem;
+  color: white;
+  transition: all 0.3s ease;
+  outline: none;
+  font-size: 0.875rem;
 }
+
+@utility cyber-input:focus {
+  border-color: var(--color-neon-blue);
+  box-shadow: 0 0 10px -2px var(--color-neon-blue);
+  background-color: rgb(2 6 23 / 0.6);
+}
+
+@utility cyber-button-blue {
+  background-color: var(--color-neon-blue / 10%);
+  color: var(--color-neon-blue);
+  border: 1px solid var(--color-neon-blue / 40%);
+  border-radius: 1rem;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  transition: all 0.3s ease;
+  font-size: 0.75rem;
+}
+
+@utility cyber-button-blue:hover {
+  background-color: var(--color-neon-blue / 20%);
+  box-shadow: 0 0 20px -5px var(--color-neon-blue);
+  transform: translateY(-2px);
+}
+
+@utility cyber-button-pink {
+  background-color: var(--color-neon-pink / 10%);
+  color: var(--color-neon-pink);
+  border: 1px solid var(--color-neon-pink / 40%);
+  border-radius: 1rem;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  transition: all 0.3s ease;
+  font-size: 0.75rem;
+}
+
+@utility cyber-button-pink:hover {
+  background-color: var(--color-neon-pink / 20%);
+  box-shadow: 0 0 20px -5px var(--color-neon-pink);
+  transform: translateY(-2px);
+}
+
+/* Hide scrollbar for Chrome, Safari and Opera */
+*::-webkit-scrollbar {
+  display: none;
+}
+
+/* Hide scrollbar for IE, Edge and Firefox */
+* {
+  -ms-overflow-style: none;  /* IE and Edge */
+  scrollbar-width: none;  /* Firefox */
+}
+
+
+
 
