@@ -178,9 +178,29 @@ const logout = async (req, res) => {
   }
 };
 
+// Mock OTP sending (since we don't have SMTP yet)
+const sendOTP = async (req, res) => {
+  try {
+    const { email } = req.body;
+    if (!isUniversityEmail(email)) {
+      return res.status(400).json({ message: `Only ${process.env.ALLOWED_EMAIL_DOMAIN} emails are allowed.` });
+    }
+    
+    // In a real app, generate a 6 digit code, save to DB with expiration, and email it.
+    const mockOTP = Math.floor(100000 + Math.random() * 900000).toString();
+    console.log(`\n\n[MOCK EMAIL] To: ${email} | Subject: Your Verification Code | OTP: ${mockOTP}\n\n`);
+    
+    res.json({ message: 'OTP sent successfully (check backend console)' });
+  } catch (error) {
+    console.error('Send OTP error:', error);
+    res.status(500).json({ message: 'Server error during OTP generation' });
+  }
+};
+
 module.exports = {
   register,
   login,
   refreshTokens,
-  logout
+  logout,
+  sendOTP
 };
