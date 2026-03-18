@@ -30,12 +30,13 @@ const ForgotPassword = () => {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center relative overflow-hidden bg-slate-50">
-      <div className="absolute top-0 left-0 w-full h-full overflow-hidden -z-10 bg-gradient-to-br from-slate-100 to-slate-200">
-        <div className="absolute top-[-20%] left-[20%] w-[500px] h-[500px] rounded-full bg-primary-400/20 blur-[100px]" />
+    <div className="min-h-screen flex items-center justify-center relative overflow-hidden bg-slate-50 p-4 md:p-10">
+      <div className="absolute top-0 left-0 w-full h-full overflow-hidden -z-10 bg-gradient-to-br from-slate-100 to-slate-200 pointer-events-none">
+        <div className="absolute top-[-10%] left-[20%] w-[300px] md:w-[600px] h-[300px] md:h-[600px] rounded-full bg-primary-400/20 blur-[80px] md:blur-[120px]" />
       </div>
 
-      <div className="glass-card w-full max-w-md p-8 sm:p-10 rounded-3xl mx-4 transform transition-all shadow-2xl">
+      <div className="glass-card w-full max-w-[90%] sm:max-w-md p-6 sm:p-10 rounded-3xl transform transition-all duration-300 hover:shadow-2xl">
+
         <div className="text-center mb-10">
           <div className="mx-auto w-12 h-12 bg-primary-100 text-primary-600 rounded-full flex items-center justify-center mb-4">
             <KeyRound className="w-6 h-6" />
