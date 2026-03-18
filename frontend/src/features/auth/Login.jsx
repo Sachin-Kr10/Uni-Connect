@@ -17,21 +17,25 @@ const Login = () => {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center relative overflow-hidden bg-slate-50 p-4 md:p-8">
-      {/* Dynamic Background */}
-      <div className="absolute top-0 left-0 w-full h-full overflow-hidden -z-10 bg-gradient-to-br from-slate-100 to-slate-200 pointer-events-none">
-        <div className="absolute top-[-10%] right-[-5%] w-[300px] md:w-[600px] h-[300px] md:h-[600px] rounded-full bg-primary-400/20 blur-[80px] md:blur-[120px]" />
-        <div className="absolute bottom-[-10%] left-[-5%] w-[300px] md:w-[600px] h-[300px] md:h-[600px] rounded-full bg-blue-400/20 blur-[80px] md:blur-[120px]" />
+    <div className="min-h-screen flex items-center justify-center relative overflow-hidden bg-slate-50 p-4 md:p-12 lg:p-24">
+      {/* Premium Background Blobs */}
+      <div className="absolute inset-0 -z-10 pointer-events-none">
+        <div className="absolute top-[-10%] right-[-10%] w-[600px] h-[600px] rounded-full bg-emerald-100/50 blur-[130px]" />
+        <div className="absolute bottom-[-10%] left-[-10%] w-[600px] h-[600px] rounded-full bg-blue-100/50 blur-[130px]" />
+        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[800px] h-[800px] rounded-full bg-white/20 blur-[150px]" />
       </div>
 
-      <div className="glass-card w-full max-w-[90%] sm:max-w-md p-6 sm:p-10 rounded-3xl transform transition-all duration-300 hover:shadow-2xl">
-
-        <div className="text-center mb-10">
-          <h2 className="text-3xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-slate-800 to-slate-600 mb-2">
-            Welcome Back
+      <div className="glass-card bg-white/40 w-full max-w-[95%] sm:max-w-md p-8 sm:p-12 rounded-[2rem] shadow-2xl relative">
+        <div className="text-center mb-12">
+          <div className="inline-block px-4 py-1.5 mb-4 bg-primary-100 text-primary-700 rounded-full text-xs font-bold uppercase tracking-widest">
+            Uni-Connect Secure
+          </div>
+          <h2 className="text-4xl font-black text-slate-900 mb-3 tracking-tight">
+            Login
           </h2>
-          <p className="text-slate-500 font-medium">Please enter your university details</p>
+          <p className="text-slate-500 font-semibold text-sm">Welcome back to your campus community</p>
         </div>
+
 
         <form onSubmit={handleSubmit} className="space-y-6">
           <div className="space-y-2">

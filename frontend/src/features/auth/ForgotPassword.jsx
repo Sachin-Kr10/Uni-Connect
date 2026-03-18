@@ -30,24 +30,25 @@ const ForgotPassword = () => {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center relative overflow-hidden bg-slate-50 p-4 md:p-10">
-      <div className="absolute top-0 left-0 w-full h-full overflow-hidden -z-10 bg-gradient-to-br from-slate-100 to-slate-200 pointer-events-none">
-        <div className="absolute top-[-10%] left-[20%] w-[300px] md:w-[600px] h-[300px] md:h-[600px] rounded-full bg-primary-400/20 blur-[80px] md:blur-[120px]" />
+    <div className="min-h-screen flex items-center justify-center relative overflow-hidden bg-slate-50 p-4 md:p-12 lg:p-24">
+      {/* Premium Background Blobs */}
+      <div className="absolute inset-0 -z-10 pointer-events-none">
+        <div className="absolute top-[-10%] left-[20%] w-[600px] h-[600px] rounded-full bg-primary-100/50 blur-[130px]" />
       </div>
 
-      <div className="glass-card w-full max-w-[90%] sm:max-w-md p-6 sm:p-10 rounded-3xl transform transition-all duration-300 hover:shadow-2xl">
-
+      <div className="glass-card bg-white/40 w-full max-w-[95%] sm:max-w-md p-8 sm:p-12 rounded-[2rem] shadow-2xl relative">
         <div className="text-center mb-10">
-          <div className="mx-auto w-12 h-12 bg-primary-100 text-primary-600 rounded-full flex items-center justify-center mb-4">
-            <KeyRound className="w-6 h-6" />
+          <div className="mx-auto w-16 h-16 bg-primary-50 text-primary-600 rounded-2xl flex items-center justify-center mb-6 shadow-sm rotate-3">
+            <KeyRound className="w-8 h-8" />
           </div>
-          <h2 className="text-3xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-slate-800 to-slate-600 mb-2">
-            Reset Password
+          <h2 className="text-4xl font-black text-slate-900 mb-3 tracking-tight">
+            Reset
           </h2>
-          <p className="text-slate-500 font-medium">
-            {step === 1 ? 'Enter your email to receive a reset code' : `We sent an OTP to ${formData.email}`}
+          <p className="text-slate-500 font-semibold text-sm">
+            {step === 1 ? 'Recover your campus account' : `Code sent to ${formData.email}`}
           </p>
         </div>
+
 
         {step === 1 ? (
           <form onSubmit={handleRequestOTP} className="space-y-6">
