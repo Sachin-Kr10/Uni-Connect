@@ -1,6 +1,9 @@
 # Dependencies
 node_modules/
 
+# Production
+dist/
+
 # Environment variables
 .env
 *.env
@@ -10,16 +13,17 @@ node_modules/
 .env.production.local
 
 # Logs
-logs
+logs/
 *.log
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
 pnpm-debug.log*
 
-# IDEs and Editors
+# Editor/OS directories and files
 .vscode/
 .idea/
 .DS_Store
 *.swp
 *.swo
+*.sw?
