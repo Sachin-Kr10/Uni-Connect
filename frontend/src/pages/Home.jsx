@@ -3,57 +3,50 @@ import { LogIn, UserPlus } from 'lucide-react';
 
 const Home = () => {
   return (
-    <div className="h-screen w-full flex items-center justify-center bg-cyber-mesh relative overflow-hidden p-4 md:p-8">
-      {/* Moving Neon Light Rays */}
-      <div className="absolute inset-0 overflow-hidden -z-10">
-        <div className="absolute top-[40%] left-[-10%] w-[120%] h-[20%] bg-neon-pink/10 blur-[100px] -rotate-12 animate-pulse" />
-        <div className="absolute top-[30%] right-[-10%] w-[120%] h-[20%] bg-neon-blue/10 blur-[100px] rotate-12" />
+    <div className="flex flex-col items-center justify-center min-h-screen bg-slate-50 relative overflow-hidden px-4 py-12 md:py-24">
+      {/* Premium Mesh Background */}
+      <div className="absolute inset-0 -z-10 pointer-events-none">
+        <div className="absolute top-[-10%] left-[-10%] w-[40%] h-[40%] bg-emerald-200/40 rounded-full blur-[120px] animate-pulse" />
+        <div className="absolute bottom-[-10%] right-[-10%] w-[50%] h-[50%] bg-blue-200/30 rounded-full blur-[120px] animation-delay-2000" />
+        <div className="absolute top-[20%] right-[10%] w-[30%] h-[30%] bg-primary-200/20 rounded-full blur-[100px]" />
       </div>
 
-      <div className="glass-2080 p-8 md:p-12 lg:p-16 rounded-[3rem] text-center max-w-4xl w-full mx-auto relative group">
-        {/* Corner Accents */}
-        <div className="absolute top-0 left-0 w-8 h-8 border-t-2 border-l-2 border-neon-blue opacity-50 group-hover:opacity-100 transition-opacity" />
-        <div className="absolute bottom-0 right-0 w-8 h-8 border-b-2 border-r-2 border-neon-pink opacity-50 group-hover:opacity-100 transition-opacity" />
-
-        <h1 className="text-5xl md:text-7xl lg:text-8xl font-black text-white mb-6 tracking-tighter leading-none uppercase">
-          Uni<span className="text-neon-blue">.</span>Connect <br />
-          <span className="text-neon-pink animate-pulse">2080</span>
+      <div className="glass-card bg-white/60 p-8 md:p-16 lg:p-20 rounded-[2.5rem] text-center max-w-5xl w-full mx-auto shadow-2xl scale-100 hover:scale-[1.01]">
+        <h1 className="text-5xl md:text-7xl lg:text-8xl font-black text-slate-900 mb-8 tracking-tighter leading-[0.9]">
+          Connect your <br />
+          <span className="text-gradient">University Life.</span>
         </h1>
         
-        <p className="text-base md:text-lg text-slate-400 mb-8 max-w-xl mx-auto leading-relaxed tracking-wide font-medium">
-          Access the secure campus mainframe. <br />
-          Connect with neural nodes across the university grid.
+        <p className="text-lg md:text-2xl text-slate-600 mb-12 max-w-2xl mx-auto leading-relaxed font-medium">
+          The ultimate social platform for students and clubs. 
+          Share, follow, and grow within your exclusive campus community.
         </p>
         
-        <div className="flex flex-col sm:flex-row gap-6 justify-center items-center">
+        <div className="flex flex-col sm:flex-row gap-5 justify-center items-center">
           <Link 
             to="/login" 
-            className="w-full sm:w-auto flex items-center justify-center gap-3 px-12 py-4 bg-neon-blue/20 hover:bg-neon-blue/40 text-neon-blue border border-neon-blue rounded-full font-black text-sm uppercase tracking-[0.2em] transition-all shadow-glow-blue hover:shadow-[0_0_30px_var(--color-neon-blue)] active:scale-95"
+            className="group w-full sm:w-auto flex items-center justify-center gap-3 px-12 py-5 bg-primary-600 hover:bg-primary-700 text-white rounded-2xl font-bold text-lg transition-all shadow-[0_10px_30px_-10px_rgba(22,163,74,0.5)] hover:shadow-[0_15px_35px_-10px_rgba(22,163,74,0.6)] hover:-translate-y-1 active:scale-95"
           >
-            <LogIn className="w-5 h-5" />
-            Initialize
+            <LogIn className="w-6 h-6 group-hover:translate-x-1 transition-transform" />
+            Sign In
           </Link>
           <Link 
             to="/register" 
-            className="w-full sm:w-auto flex items-center justify-center gap-3 px-12 py-4 bg-neon-pink/20 hover:bg-neon-pink/40 text-neon-pink border border-neon-pink rounded-full font-black text-sm uppercase tracking-[0.2em] transition-all shadow-glow-pink hover:shadow-[0_0_30px_var(--color-neon-pink)] active:scale-95"
+            className="w-full sm:w-auto flex items-center justify-center gap-3 px-12 py-5 bg-white/80 hover:bg-white text-slate-800 border border-slate-200/60 rounded-2xl font-bold text-lg transition-all shadow-sm hover:shadow-xl hover:-translate-y-1 active:scale-95 backdrop-blur-sm"
           >
-            <UserPlus className="w-5 h-5" />
-            New Node
+            <UserPlus className="w-6 h-6 text-primary-600" />
+            Get Started
           </Link>
         </div>
-
-        {/* System Status Line */}
-        <div className="mt-10 flex items-center justify-center gap-4 text-[10px] uppercase tracking-[0.3em] font-bold text-slate-500">
-          <span className="w-2 h-2 rounded-full bg-neon-yellow animate-ping" />
-          Network Status: Optimal
-          <span className="w-10 h-[1px] bg-slate-800" />
-          v2080.4.12
-        </div>
+      </div>
+      
+      {/* Bottom Footer or Info */}
+      <div className="mt-12 text-slate-400 font-semibold uppercase tracking-[0.2em] text-xs">
+        Trusted by 1000+ Students & Clubs
       </div>
     </div>
   );
 };
-
 
 
 export default Home;

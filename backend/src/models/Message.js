@@ -1,30 +1,34 @@
 const { DataTypes } = require('sequelize');
 const { sequelize } = require('../config/db');
 
-const Comment = sequelize.define('Comment', {
+const Message = sequelize.define('Message', {
   id: {
     type: DataTypes.UUID,
     defaultValue: DataTypes.UUIDV4,
     primaryKey: true,
   },
+  conversationId: {
+    type: DataTypes.UUID,
+    allowNull: false,
+  },
+  senderId: {
+    type: DataTypes.UUID,
+    allowNull: false,
+  },
   content: {
     type: DataTypes.TEXT,
     allowNull: false,
   },
-  userId: {
-    type: DataTypes.UUID,
-    allowNull: false,
-  },
-  postId: {
-    type: DataTypes.UUID,
-    allowNull: false,
+  isRead: {
+    type: DataTypes.BOOLEAN,
+    defaultValue: false
   }
 }, {
   timestamps: true,
   indexes: [
-    { fields: ['postId'] },
-    { fields: ['userId'] }
+    { fields: ['conversationId'] },
+    { fields: ['createdAt'] }
   ]
 });
 
-module.exports = Comment;
+module.exports = Message;

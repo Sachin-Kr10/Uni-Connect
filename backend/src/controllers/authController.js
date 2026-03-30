@@ -1,34 +1,58 @@
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
-const User = require('../models/User');
+const { User, OTP } = require('../models');
+const sendEmail = require('../utils/sendEmail');
 const { generateAccessToken, generateRefreshToken, isUniversityEmail } = require('../utils/helpers');
 
 // Register new user
 const register = async (req, res) => {
   try {
-    const { name, email, password } = req.body;
+    const { name, email, password, role, otpCode } = req.body;
 
     // 1. Validate Email Domain
     if (!isUniversityEmail(email)) {
       return res.status(400).json({ message: `Only ${process.env.ALLOWED_EMAIL_DOMAIN} emails are allowed.` });
     }
 
-    // 2. Check if user already exists
+    // 2. Validate OTP
+    if (!otpCode) {
+      return res.status(400).json({ message: 'OTP is required for registration' });
+    }
+
+    const otpRecord = await OTP.findOne({ 
+      where: { email, code: otpCode },
+      order: [['createdAt', 'DESC']]
+    });
+
+    if (!otpRecord) {
+      return res.status(400).json({ message: 'Invalid OTP' });
+    }
+
+    if (new Date() > otpRecord.expiresAt) {
+      await otpRecord.destroy();
+      return res.status(400).json({ message: 'OTP has expired' });
+    }
+
+    // 3. Check if user already exists
     const existingUser = await User.findOne({ where: { email } });
     if (existingUser) {
       return res.status(400).json({ message: 'User already exists' });
     }
 
-    // 3. Hash password
+    // 4. Hash password
     const salt = await bcrypt.genSalt(10);
     const hashedPassword = await bcrypt.hash(password, salt);
 
-    // 4. Create User
+    // 5. Create User
     const user = await User.create({
       name,
       email,
       password: hashedPassword,
+      role: ['user', 'club', 'admin'].includes(role) ? role : 'user', // Ensure valid role
     });
+
+    // Cleanup OTP
+    await OTP.destroy({ where: { email } });
 
     // 5. Generate Tokens
     const accessToken = generateAccessToken(user.id, user.role);
@@ -178,7 +202,7 @@ const logout = async (req, res) => {
   }
 };
 
-// Mock OTP sending (since we don't have SMTP yet)
+// Send OTP via Email
 const sendOTP = async (req, res) => {
   try {
     const { email } = req.body;
@@ -186,11 +210,41 @@ const sendOTP = async (req, res) => {
       return res.status(400).json({ message: `Only ${process.env.ALLOWED_EMAIL_DOMAIN} emails are allowed.` });
     }
     
-    // In a real app, generate a 6 digit code, save to DB with expiration, and email it.
-    const mockOTP = Math.floor(100000 + Math.random() * 900000).toString();
-    console.log(`\n\n[MOCK EMAIL] To: ${email} | Subject: Your Verification Code | OTP: ${mockOTP}\n\n`);
+    // Check if user already exists
+    const existingUser = await User.findOne({ where: { email } });
+    if (existingUser) {
+      return res.status(400).json({ message: 'User already registered' });
+    }
+
+    const otpCode = Math.floor(100000 + Math.random() * 900000).toString();
+    const expiresAt = new Date(Date.now() + 10 * 60 * 1000); // 10 mins
+
+    // Save to DB
+    await OTP.create({ email, code: otpCode, expiresAt });
+
+    // Send via Nodemailer
+    try {
+      await sendEmail({
+        to: email,
+        subject: 'Your Uni-Connect Verification Code',
+        text: `Welcome to Uni-Connect! Your verification code is ${otpCode}. It expires in 10 minutes.`,
+        html: `
+          <div style="font-family: sans-serif; padding: 20px; max-width: 600px; margin: 0 auto;">
+            <h2 style="color: #10b981;">Welcome to Uni-Connect!</h2>
+            <p>Your email verification code is:</p>
+            <h1 style="letter-spacing: 5px; font-size: 36px; color: #334155;">${otpCode}</h1>
+            <p style="color: #64748b; font-size: 14px;">This code will expire in 10 minutes. Do not share it with anyone.</p>
+          </div>
+        `
+      });
+      res.json({ message: 'OTP sent to your email successfully.' });
+    } catch (mailError) {
+      console.error('Nodemailer error -> falling back to console log:', mailError);
+      // Fallback for dev if env vars aren't set
+      console.log(`\n\n[MOCK EMAIL] To: ${email} | Subject: Your Verification Code | OTP: ${otpCode}\n\n`);
+      res.json({ message: 'OTP generated (Check server console if Mailtrap is not configured).' });
+    }
     
-    res.json({ message: 'OTP sent successfully (check backend console)' });
   } catch (error) {
     console.error('Send OTP error:', error);
     res.status(500).json({ message: 'Server error during OTP generation' });

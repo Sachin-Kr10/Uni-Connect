@@ -1,34 +1,34 @@
 const { DataTypes } = require('sequelize');
 const { sequelize } = require('../config/db');
 
-const Group = sequelize.define('Group', {
+const OTP = sequelize.define('OTP', {
   id: {
     type: DataTypes.UUID,
     defaultValue: DataTypes.UUIDV4,
     primaryKey: true,
   },
-  name: {
+  email: {
     type: DataTypes.STRING,
     allowNull: false,
-    unique: true
+    validate: {
+      isEmail: true,
+    },
   },
-  description: {
-    type: DataTypes.TEXT,
-    allowNull: true,
-  },
-  bannerUrl: {
+  code: {
     type: DataTypes.STRING,
-    allowNull: true,
-  },
-  adminId: {
-    type: DataTypes.UUID,
     allowNull: false,
+  },
+  expiresAt: {
+    type: DataTypes.DATE,
+    allowNull: false,
+    defaultValue: () => new Date(Date.now() + 10 * 60 * 1000), // 10 minutes expiry
   }
 }, {
   timestamps: true,
   indexes: [
-    { fields: ['adminId'] }
+    { fields: ['email'] },
+    { fields: ['code'] }
   ]
 });
 
-module.exports = Group;
+module.exports = OTP;
