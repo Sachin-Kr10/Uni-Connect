@@ -14,6 +14,8 @@ const authRoutes = require('./src/routes/authRoutes');
 const postRoutes = require('./src/routes/postRoutes');
 const chatRoutes = require('./src/routes/chatRoutes');
 const groupRoutes = require('./src/routes/groupRoutes');
+const userRoutes = require('./src/routes/userRoutes');
+const uploadRoutes = require('./src/routes/uploadRoutes');
 
 const app = express();
 const PORT = process.env.PORT || 5000;
@@ -49,6 +51,8 @@ app.use('/api/auth', authRoutes);
 app.use('/api/posts', postRoutes);
 app.use('/api/chat', chatRoutes);
 app.use('/api/groups', groupRoutes);
+app.use('/api/users', userRoutes);
+app.use('/api/upload', uploadRoutes);
 
 app.get('/', (req, res) => {
 

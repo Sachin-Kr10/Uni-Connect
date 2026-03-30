@@ -1,19 +1,27 @@
 import { useState } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { Mail, Lock, ArrowRight, Loader2 } from 'lucide-react';
+import { useAuth } from '../../context/AuthContext';
 
 const Login = () => {
   const [formData, setFormData] = useState({ email: '', password: '' });
   const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState('');
+  const { login } = useAuth();
+  const navigate = useNavigate();
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     setIsLoading(true);
-    // TODO: Connect to backend login API
-    setTimeout(() => {
+    setError('');
+    try {
+      await login(formData.email, formData.password);
+      navigate('/feed');
+    } catch (err) {
+      setError(err.response?.data?.message || 'Failed to sign in. Please check your credentials.');
+    } finally {
       setIsLoading(false);
-      console.log('Login attempt:', formData);
-    }, 1500);
+    }
   };
 
   return (
@@ -35,9 +43,12 @@ const Login = () => {
           </h2>
           <p className="text-slate-500 font-semibold text-sm">Welcome back to your campus community</p>
         </div>
-
-
         <form onSubmit={handleSubmit} className="space-y-6">
+          {error && (
+            <div className="p-3 bg-red-100/80 text-red-600 rounded-xl text-sm font-semibold text-center border border-red-200">
+              {error}
+            </div>
+          )}
           <div className="space-y-2">
             <label className="text-sm font-semibold text-slate-700 ml-1">University Email</label>
             <div className="relative group">
