@@ -16,6 +16,7 @@ const chatRoutes = require('./src/routes/chatRoutes');
 const groupRoutes = require('./src/routes/groupRoutes');
 const userRoutes = require('./src/routes/userRoutes');
 const uploadRoutes = require('./src/routes/uploadRoutes');
+const storyRoutes = require('./src/routes/storyRoutes');
 
 const app = express();
 const PORT = process.env.PORT || 5000;
@@ -53,6 +54,7 @@ app.use('/api/chat', chatRoutes);
 app.use('/api/groups', groupRoutes);
 app.use('/api/users', userRoutes);
 app.use('/api/upload', uploadRoutes);
+app.use('/api/stories', storyRoutes);
 
 app.get('/', (req, res) => {
 

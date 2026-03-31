@@ -13,7 +13,6 @@ function App() {
   return (
     <div className="min-h-screen font-sans text-slate-900 selection:bg-primary-200 selection:text-primary-900">
       <Routes>
-        {/* Public Routes */}
         <Route path="/" element={<Home />} />
         <Route path="/login" element={<Login />} />
         <Route path="/register" element={<Register />} />

@@ -1,5 +1,6 @@
 import { Link, useLocation } from 'react-router-dom';
 import { Home, MessageSquare, Users, User, Settings, LogOut, X } from 'lucide-react';
+import { motion } from 'framer-motion';
 import { useAuth } from '../../context/AuthContext';
 import { clsx } from 'clsx';
 import { twMerge } from 'tailwind-merge';
@@ -14,7 +15,6 @@ const Sidebar = ({ isOpen, onClose }) => {
     { label: 'Feed', icon: Home, path: '/feed' },
     { label: 'Chat', icon: MessageSquare, path: '/chat', badge: 3 },
     { label: 'Clubs', icon: Users, path: '/groups' },
-    { label: 'Profile', icon: User, path: `/profile/${user?.id || ''}` },
     { label: 'Settings', icon: Settings, path: '/settings' },
   ];
 
@@ -23,7 +23,7 @@ const Sidebar = ({ isOpen, onClose }) => {
   };
 
   const SidebarContent = () => (
-    <div className="flex flex-col h-full bg-white/60 backdrop-blur-3xl lg:bg-transparent lg:backdrop-blur-none border-r border-slate-200/50 lg:border-none p-4 w-72 lg:w-full">
+    <div className="flex flex-col h-full bg-white/40 backdrop-blur-3xl lg:bg-transparent lg:backdrop-blur-none border-r border-slate-200/40 lg:border-none p-5 w-72 lg:w-full">
       <div className="flex items-center justify-between mb-8 pl-2">
         <Link to="/feed" className="font-black text-2xl text-slate-900 tracking-tighter">
           Uni-Connect<span className="text-primary-500">.</span>
@@ -42,23 +42,29 @@ const Sidebar = ({ isOpen, onClose }) => {
               to={item.path}
               onClick={onClose}
               className={cn(
-                "flex items-center justify-between px-4 py-3 rounded-2xl font-semibold transition-all group",
+                "flex items-center justify-between px-5 py-3.5 rounded-2xl font-bold text-[15px] transition-all duration-300 group relative overflow-hidden",
                 isActive 
-                  ? "bg-primary-500 text-white shadow-lg shadow-primary-500/25" 
-                  : "text-slate-600 hover:bg-slate-100 hover:text-slate-900"
+                  ? "bg-white text-primary-600 shadow-premium" 
+                  : "text-slate-500 hover:bg-slate-100/50 hover:text-slate-900"
               )}
             >
-              <div className="flex items-center gap-3">
-                <item.icon className={cn("w-5 h-5", isActive ? "text-white" : "text-slate-400 group-hover:text-slate-700")} />
+              <div className="flex items-center gap-3.5">
+                <item.icon className={cn("w-5 h-5 transition-transform duration-300", isActive ? "scale-110" : "group-hover:scale-110")} />
                 {item.label}
               </div>
               {item.badge && (
                 <span className={cn(
-                  "text-[10px] px-2 py-0.5 rounded-full",
-                  isActive ? "bg-white/20 text-white" : "bg-primary-100 text-primary-700"
+                  "text-[10px] px-2 py-0.5 rounded-full font-black",
+                  isActive ? "bg-primary-500 text-white" : "bg-primary-100 text-primary-700"
                 )}>
                   {item.badge}
                 </span>
+              )}
+              {isActive && (
+                <motion.div 
+                  layoutId="sidebar-active"
+                  className="absolute left-0 w-1.5 h-6 bg-primary-500 rounded-r-full"
+                />
               )}
             </Link>
           );

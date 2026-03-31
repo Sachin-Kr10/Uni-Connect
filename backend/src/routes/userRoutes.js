@@ -7,5 +7,6 @@ const { verifyAccessToken } = require('../middlewares/authMiddleware');
 router.use(verifyAccessToken);
 
 router.get('/search', userController.searchUsers);
+router.get('/suggestions', userController.getSuggestions);
 
 module.exports = router;

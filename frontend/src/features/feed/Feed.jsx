@@ -1,11 +1,16 @@
-import { useState, useRef } from 'react';
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useState, useRef, useEffect } from 'react';
+import { useQuery, useInfiniteQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Loader2, Plus, Image as ImageIcon, SmilePlus, Component, X, Trash2 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import api from '../../services/api';
 import PostCard from './PostCard';
 import PostSkeleton from './PostSkeleton';
+import StoryViewer from './StoryViewer';
 import { useAuth } from '../../context/AuthContext';
+import { clsx } from 'clsx';
+import { twMerge } from 'tailwind-merge';
+
+const cn = (...inputs) => twMerge(clsx(inputs));
 
 const Feed = () => {
   const [newPostContent, setNewPostContent] = useState('');
@@ -13,6 +18,8 @@ const Feed = () => {
   const [selectedFile, setSelectedFile] = useState(null);
   const [previewUrl, setPreviewUrl] = useState('');
   const [isUploading, setIsUploading] = useState(false);
+  const [activeStoryGroup, setActiveStoryGroup] = useState(null); // Story viewing state
+  const [isStoryUploading, setIsStoryUploading] = useState(false);
 
   const composerRef = useRef(null);
   const fileInputRef = useRef(null);
@@ -20,14 +27,69 @@ const Feed = () => {
   const queryClient = useQueryClient();
   const { user } = useAuth();
 
-  // Fetch Feed
-  const { data, isLoading, isError } = useQuery({
+  // Fetch Feed with Infinite Query
+  const { 
+    data, 
+    isLoading, 
+    isError, 
+    fetchNextPage, 
+    hasNextPage, 
+    isFetchingNextPage 
+  } = useInfiniteQuery({
     queryKey: ['feed'],
+    queryFn: async ({ pageParam = 1 }) => {
+      const res = await api.get(`/posts/feed?page=${pageParam}&limit=5`);
+      return res.data;
+    },
+    getNextPageParam: (lastPage) => {
+       if (lastPage.currentPage < lastPage.totalPages) {
+         return lastPage.currentPage + 1;
+       }
+       return undefined;
+    },
+    initialPageParam: 1,
+  });
+
+  // Fetch Stories
+  const { data: storyGroups, isLoading: isStoriesLoading } = useQuery({
+    queryKey: ['stories'],
     queryFn: async () => {
-      const res = await api.get('/posts/feed');
+      const res = await api.get('/stories/active');
       return res.data;
     }
   });
+
+  // Create Story Mutation
+  const createStoryMutation = useMutation({
+    mutationFn: (storyData) => api.post('/stories', storyData),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['stories'] });
+    }
+  });
+
+  // Infinite Scroll Observer
+  const sentinelRef = useRef(null);
+
+  useEffect(() => {
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (entries[0].isIntersecting && hasNextPage && !isFetchingNextPage) {
+          fetchNextPage();
+        }
+      },
+      { threshold: 1.0 }
+    );
+
+    if (sentinelRef.current) {
+      observer.observe(sentinelRef.current);
+    }
+
+    return () => {
+      if (sentinelRef.current) {
+        observer.unobserve(sentinelRef.current);
+      }
+    };
+  }, [hasNextPage, isFetchingNextPage, fetchNextPage]);
 
   // Create Post Mutation
   const createPostMutation = useMutation({
@@ -87,6 +149,28 @@ const Feed = () => {
     createPostMutation.mutate({ content: newPostContent, mediaUrl });
   };
 
+  const handleStoryFileSelect = async (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+
+    setIsStoryUploading(true);
+    try {
+      const formData = new FormData();
+      formData.append('image', file);
+      
+      const uploadRes = await api.post('/upload', formData, {
+        headers: { 'Content-Type': 'multipart/form-data' }
+      });
+      
+      const mediaUrl = uploadRes.data.url;
+      createStoryMutation.mutate({ mediaUrl });
+    } catch (err) {
+      console.error("Story upload failed", err);
+      alert("Failed to upload story. Please try again.");
+    }
+    setIsStoryUploading(false);
+  };
+
   // Mock Stories Data
   const stories = [
     { id: 'me', name: 'Your story', isUser: true, hasUnseen: false },
@@ -99,87 +183,155 @@ const Feed = () => {
   ];
 
   return (
-    <div className="max-w-[600px] mx-auto pb-20 pt-4 sm:pt-8 flex flex-col items-center">
+    <div className="max-w-[600px] mx-auto pb-20 sm:pt-8 flex flex-col items-center">
       
-      {/* Stories Section */}
-      <div className="w-full bg-white border border-slate-200 rounded-none sm:rounded-2xl mb-6 p-4 overflow-hidden shadow-sm">
-        <div className="flex gap-4 overflow-x-auto pb-2 scrollbar-hide snap-x">
-          {stories.map((story) => (
-            <motion.div 
-              whileHover={{ scale: 1.05 }}
-              whileTap={{ scale: 0.95 }}
-              key={story.id} 
-              className="flex flex-col items-center gap-1 cursor-pointer snap-start shrink-0"
-            >
-              <div className={`relative w-16 h-16 rounded-full p-[2px] ${story.hasUnseen ? 'bg-gradient-to-tr from-yellow-400 via-red-500 to-purple-500' : 'bg-slate-200'}`}>
-                <div className="w-full h-full bg-white rounded-full border-2 border-white flex items-center justify-center font-bold text-xl text-slate-700 overflow-hidden relative">
-                  {story.isUser && (
-                    <div className="absolute inset-0 flex items-center justify-center bg-slate-100">
-                      {user?.name?.charAt(0) || 'Y'}
+      {/* Modern Stories Bar */}
+      <div className="w-full mb-8 overflow-hidden">
+        <div className="flex gap-5 overflow-x-auto pb-4 scrollbar-hide snap-x px-1">
+          {/* Your Story Trigger */}
+          <motion.div 
+            whileHover={{ scale: 1.02 }}
+            whileTap={{ scale: 0.98 }}
+            className="flex flex-col items-center gap-2 cursor-pointer snap-start shrink-0"
+          >
+            <div className="relative w-[72px] h-[72px] rounded-3xl p-[3px] bg-slate-200/50 transition-colors hover:bg-slate-300/50">
+              <div 
+                className="w-full h-full bg-white rounded-[21px] flex items-center justify-center font-bold text-lg text-slate-700 overflow-hidden relative shadow-sm border border-white"
+                onClick={() => document.getElementById('story-upload').click()}
+              >
+                 <img 
+                    src={`https://api.dicebear.com/7.x/avataaars/svg?seed=${user?.name || 'User'}`} 
+                    alt="me" 
+                    className="w-full h-full object-cover"
+                  />
+                  {isStoryUploading && (
+                    <div className="absolute inset-0 bg-black/40 flex items-center justify-center text-white backdrop-blur-[2px]">
+                      <Loader2 className="w-5 h-5 animate-spin" />
                     </div>
                   )}
-                  {!story.isUser && story.image}
-                </div>
-                {story.isUser && (
-                  <div className="absolute bottom-0 right-0 w-5 h-5 bg-blue-500 rounded-full border-2 border-white flex items-center justify-center text-white">
-                    <Plus className="w-3 h-3" />
-                  </div>
-                )}
+                  <div className="absolute inset-0 bg-black/5 opacity-0 hover:opacity-100 transition-opacity" />
               </div>
-              <span className="text-xs text-slate-600 truncate w-16 text-center">
-                {story.name}
+              <div className="absolute -bottom-1 -right-1 w-[26px] h-[26px] bg-primary-500 rounded-xl border-[3px] border-white flex items-center justify-center text-white shadow-md z-10 transition-transform hover:scale-110">
+                <Plus className="w-4 h-4 stroke-[4px]" />
+              </div>
+              <input 
+                id="story-upload" 
+                type="file" 
+                accept="image/*" 
+                className="hidden" 
+                onChange={handleStoryFileSelect} 
+                disabled={isStoryUploading}
+              />
+            </div>
+            <span className="text-[11px] font-bold text-slate-500 tracking-tight">
+              Add Story
+            </span>
+          </motion.div>
+
+          {/* Active Stories */}
+          {storyGroups?.map((group, index) => (
+            <motion.div 
+              whileHover={{ scale: 1.02 }}
+              whileTap={{ scale: 0.98 }}
+              key={group.user.id} 
+              className="flex flex-col items-center gap-2 cursor-pointer snap-start shrink-0"
+              onClick={() => setActiveStoryGroup({ groups: storyGroups, index })}
+            >
+              <div className="relative w-[72px] h-[72px] rounded-3xl p-[3px] bg-gradient-to-tr from-sky-400 via-blue-500 to-indigo-600 shadow-sm transition-shadow hover:shadow-md">
+                <div className="w-full h-full bg-white rounded-[21px] border-[2px] border-white flex items-center justify-center font-bold text-lg text-slate-700 overflow-hidden relative">
+                  <img 
+                    src={`https://api.dicebear.com/7.x/avataaars/svg?seed=${group.user.name}`} 
+                    alt={group.user.name} 
+                    className="w-full h-full object-cover"
+                  />
+                  <div className="absolute inset-0 bg-black/5 opacity-0 hover:opacity-100 transition-opacity" />
+                </div>
+              </div>
+              <span className="text-[11px] font-bold text-slate-800 tracking-tight truncate w-[72px] text-center">
+                {group.user.name?.split(' ')[0]}
               </span>
             </motion.div>
           ))}
         </div>
       </div>
 
-      {/* Upgraded Composer */}
+      {/* Premium Post Composer */}
       <motion.div 
-        layout
-        className={`w-full bg-white border border-slate-200 rounded-none sm:rounded-2xl mb-6 p-4 shadow-sm transition-all duration-300 ${isComposerFocused ? 'ring-2 ring-blue-500/20 border-blue-200' : ''}`}
+        initial={false}
+        animate={{ height: isComposerFocused ? 'auto' : '64px' }}
+        className={cn(
+          "w-full bg-white mb-8 transition-all duration-500 ease-in-out border border-slate-200/60 overflow-hidden shadow-sm",
+          isComposerFocused ? "rounded-3xl p-5 border-primary-100 ring-4 ring-primary-50/30" : "rounded-full px-5 py-2.5 flex items-center"
+        )}
       >
-        <form onSubmit={handlePostSubmit} className="flex flex-col">
-          <div className="flex gap-3">
-            <div className="w-10 h-10 rounded-full bg-gradient-to-tr from-sky-400 to-blue-500 flex items-center justify-center text-white font-bold shrink-0 shadow-sm">
-              {user?.name?.charAt(0) || 'U'}
-            </div>
-            <div className="flex-1">
-              <textarea
-                ref={composerRef}
-                placeholder="What's happening?"
-                className="w-full placeholder:text-slate-500 text-slate-900 text-lg outline-none resize-none pt-2 bg-transparent"
-                style={{ minHeight: isComposerFocused ? '80px' : '40px' }}
-                value={newPostContent}
-                onChange={(e) => setNewPostContent(e.target.value)}
-                onFocus={() => setIsComposerFocused(true)}
-              />
+        <form onSubmit={handlePostSubmit} className="w-full flex flex-col">
+          <div className="flex items-start gap-4">
+             <div className="w-10 h-10 rounded-full bg-slate-100 flex-shrink-0 border border-slate-200/50 overflow-hidden shadow-inner flex items-center justify-center">
+                <img 
+                  src={`https://api.dicebear.com/7.x/avataaars/svg?seed=${user?.name || 'User'}`} 
+                  alt="me" 
+                   className="w-full h-full object-cover"
+                />
+             </div>
+             
+             <div className="flex-1 min-w-0 pt-2">
+               <textarea
+                 ref={composerRef}
+                 placeholder="What's happening in campus?"
+                 className={cn(
+                   "w-full bg-transparent border-none focus:ring-0 resize-none text-slate-800 font-medium placeholder:text-slate-400 transition-all",
+                   isComposerFocused ? "min-h-[100px] text-lg" : "h-10 text-base"
+                 )}
+                 value={newPostContent}
+                 onChange={(e) => setNewPostContent(e.target.value)}
+                 onFocus={() => setIsComposerFocused(true)}
+               />
+               
+               {/* Image Preview */}
+               {previewUrl && (
+                 <div className="relative mt-4 mb-4 w-full h-[320px] rounded-2xl overflow-hidden border border-slate-100 bg-slate-50 group">
+                    <img src={previewUrl} alt="Preview" className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-105" />
+                    <button 
+                      type="button" 
+                      onClick={handleRemoveImage}
+                      className="absolute top-3 right-3 p-2 bg-black/40 hover:bg-black/60 text-white rounded-xl backdrop-blur-md transition-all active:scale-90"
+                    >
+                      <X className="w-5 h-5" />
+                    </button>
+                    <div className="absolute inset-0 bg-gradient-to-t from-black/20 to-transparent pointer-events-none" />
+                 </div>
+               )}
+             </div>
 
-              {/* Image Preview */}
-              {previewUrl && (
-                <div className="relative mt-2 mb-2 w-full max-h-80 rounded-2xl overflow-hidden border border-slate-200 bg-slate-50 flex items-center justify-center">
-                   <img src={previewUrl} alt="Preview" className="max-h-80 object-contain" />
-                   <button 
-                     type="button" 
-                     onClick={handleRemoveImage}
-                     className="absolute top-2 right-2 p-1.5 bg-black/60 hover:bg-black/80 text-white rounded-full backdrop-blur-sm transition-colors"
-                   >
-                     <Trash2 className="w-4 h-4" />
-                   </button>
-                </div>
-              )}
-            </div>
+             {!isComposerFocused && (
+               <div className="flex items-center gap-1 mb-1">
+                 <button 
+                   type="button" 
+                   onClick={() => fileInputRef.current?.click()}
+                   className="p-2.5 text-slate-400 hover:text-primary-500 hover:bg-primary-50 rounded-xl transition-all"
+                 >
+                   <ImageIcon className="w-5 h-5" />
+                 </button>
+                 <button 
+                   type="submit"
+                   disabled={!newPostContent.trim() && !selectedFile}
+                   className="bg-primary-500 hover:bg-primary-600 text-white w-10 h-10 rounded-xl flex items-center justify-center transition-all shadow-md shadow-primary-500/20 active:scale-90 disabled:opacity-50"
+                 >
+                    <Plus className="w-6 h-6 stroke-[3px]" />
+                 </button>
+               </div>
+             )}
           </div>
-          
+
           <AnimatePresence>
             {isComposerFocused && (
               <motion.div 
-                initial={{ opacity: 0, height: 0 }}
-                animate={{ opacity: 1, height: 'auto' }}
-                exit={{ opacity: 0, height: 0 }}
-                className="flex items-center justify-between mt-3 pt-3 border-t border-slate-100 overflow-hidden"
+                initial={{ opacity: 0, y: -10 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -10 }}
+                className="flex items-center justify-between pt-4 mt-2 border-t border-slate-100"
               >
-                <div className="flex items-center gap-1 text-blue-500">
+                <div className="flex items-center gap-1.5">
                   <input 
                     type="file" 
                     accept="image/jpeg,image/png,image/gif,image/webp" 
@@ -190,20 +342,18 @@ const Feed = () => {
                   <button 
                     type="button" 
                     onClick={() => fileInputRef.current?.click()}
-                    className="p-2 hover:bg-blue-50 rounded-full transition-colors cursor-pointer" 
-                    title="Add Image"
+                    className="flex items-center gap-2 px-3.5 py-2 text-primary-600 hover:bg-primary-50 rounded-xl font-bold text-sm transition-all"
                   >
                     <ImageIcon className="w-5 h-5" />
+                    <span>Media</span>
                   </button>
-                  <button type="button" className="p-2 hover:bg-blue-50 rounded-full transition-colors cursor-pointer" title="Add Poll">
+                  <button type="button" className="flex items-center gap-2 px-3.5 py-2 text-slate-500 hover:bg-slate-50 rounded-xl font-bold text-sm transition-all">
                     <Component className="w-5 h-5" />
-                  </button>
-                  <button type="button" className="p-2 hover:bg-blue-50 rounded-full transition-colors cursor-pointer" title="Feeling/Activity">
-                    <SmilePlus className="w-5 h-5" />
+                    <span>Poll</span>
                   </button>
                 </div>
                 
-                <div className="flex items-center gap-2">
+                <div className="flex items-center gap-3">
                    <button 
                     type="button"
                     onClick={() => {
@@ -211,17 +361,17 @@ const Feed = () => {
                       setNewPostContent('');
                       handleRemoveImage();
                     }}
-                    className="p-2 text-slate-400 hover:text-slate-600 rounded-full transition-colors"
+                    className="px-4 py-2 text-slate-400 hover:text-slate-600 font-bold text-sm transition-all"
                   >
-                    <X className="w-5 h-5" />
+                    Cancel
                   </button>
                   <button 
                     type="submit"
                     disabled={(!newPostContent.trim() && !selectedFile) || createPostMutation.isPending || isUploading}
-                    className="bg-blue-500 hover:bg-blue-600 text-white font-bold py-1.5 px-5 rounded-full text-sm transition-colors shadow-sm disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+                    className="bg-slate-900 hover:bg-black text-white font-bold py-2 px-6 rounded-xl text-sm transition-all shadow-lg active:scale-95 disabled:opacity-50 flex items-center gap-2"
                   >
                     {(createPostMutation.isPending || isUploading) && <Loader2 className="w-4 h-4 animate-spin" />}
-                    {isUploading ? 'Uploading...' : 'Post'}
+                    {isUploading ? 'Uploading...' : 'Post it'}
                   </button>
                 </div>
               </motion.div>
@@ -247,12 +397,19 @@ const Feed = () => {
         )}
 
         <AnimatePresence>
-          {data?.posts?.map((post) => (
-            <PostCard key={post.id} post={post} />
+          {data?.pages?.map((page) => (
+            page.posts.map((post) => (
+              <PostCard key={post.id} post={post} />
+            ))
           ))}
         </AnimatePresence>
         
-        {data?.posts?.length === 0 && !isLoading && (
+        {/* Infinite Scroll Sentinel */}
+        <div ref={sentinelRef} className="h-10 flex items-center justify-center">
+          {isFetchingNextPage && <Loader2 className="w-5 h-5 animate-spin text-slate-400" />}
+        </div>
+        
+        {data?.pages?.[0]?.posts?.length === 0 && !isLoading && (
           <motion.div 
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
@@ -267,6 +424,15 @@ const Feed = () => {
         )}
       </div>
 
+      <AnimatePresence>
+        {activeStoryGroup && (
+          <StoryViewer 
+             groupedStories={activeStoryGroup.groups}
+             initialUserIndex={activeStoryGroup.index}
+             onClose={() => setActiveStoryGroup(null)}
+          />
+        )}
+      </AnimatePresence>
     </div>
   );
 };

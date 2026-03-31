@@ -1,7 +1,8 @@
 import { useState, useEffect } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { Search, Loader2, MessageCircle, Edit } from 'lucide-react';
+import { Search, Loader2, MessageCircle, Edit, Plus } from 'lucide-react';
 import { Routes, Route, useNavigate, useParams, Link, useLocation } from 'react-router-dom';
+import { motion, AnimatePresence } from 'framer-motion';
 import api from '../../services/api';
 import ChatWindow from './ChatWindow';
 import NewChatModal from './NewChatModal';
@@ -35,40 +36,43 @@ const ChatLayout = () => {
   };
 
   return (
-    <div className="flex h-[calc(100vh-80px)] md:h-[calc(100vh-64px)] w-full max-w-7xl mx-auto bg-white/40 md:bg-white/60 md:backdrop-blur-xl md:rounded-[2rem] md:shadow-2xl overflow-hidden md:my-8 border border-white/50">
+    <div className="flex h-[calc(100vh-120px)] w-full bg-white/40 backdrop-blur-2xl rounded-[2.5rem] shadow-2xl overflow-hidden border border-white/60 relative group/layout">
       
-      {/* Conversations Sidebar */}
+      {/* Search/Conversations Sidebar */}
       <div className={cn(
-        "w-full sm:w-96 flex-shrink-0 flex flex-col bg-slate-50/50 border-r border-slate-200/50 h-full transition-transform duration-300",
+        "w-full sm:w-[380px] flex-shrink-0 flex flex-col bg-white/30 border-r border-white/40 h-full transition-all duration-500 ease-in-out",
         isChatSelected ? "hidden sm:flex" : "flex"
       )}>
-        {/* Header */}
-        <div className="p-4 md:p-6 border-b border-slate-200/50 bg-white/40 backdrop-blur-md">
-          <div className="flex items-center justify-between mb-4">
-            <h2 className="text-2xl font-black text-slate-900 tracking-tight">Messages</h2>
-            <button 
+        {/* Sidebar Header */}
+        <div className="p-6 pb-4">
+          <div className="flex items-center justify-between mb-6">
+            <h2 className="text-3xl font-black text-slate-900 tracking-tighter">Messages</h2>
+            <motion.button 
+              whileHover={{ scale: 1.05 }}
+              whileTap={{ scale: 0.95 }}
               onClick={() => setIsNewChatOpen(true)}
-              className="p-2.5 bg-primary-100 hover:bg-primary-200 text-primary-700 rounded-xl transition-colors shadow-sm"
+              className="p-3 bg-slate-900 hover:bg-black text-white rounded-2xl transition-all shadow-lg active:scale-95"
               title="New Message"
             >
-              <Edit className="w-5 h-5" />
-            </button>
+              <Edit className="w-5 h-5 stroke-[2.5px]" />
+            </motion.button>
           </div>
-          <div className="relative">
-            <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+          <div className="relative group">
+            <Search className="w-4 h-4 absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-primary-500 transition-colors" />
             <input 
               type="text" 
-              placeholder="Search chats..." 
-              className="w-full pl-9 pr-4 py-2.5 bg-white border border-slate-200 focus:border-primary-500 focus:ring-4 focus:ring-primary-500/10 rounded-xl outline-none transition-all placeholder:text-slate-400 text-sm font-medium shadow-sm"
+              placeholder="Search conversations..." 
+              className="w-full pl-11 pr-4 py-3 bg-white/50 border border-white/20 focus:border-primary-500/50 focus:bg-white focus:ring-4 focus:ring-primary-500/10 rounded-2xl outline-none transition-all placeholder:text-slate-400 text-sm font-bold shadow-sm"
             />
           </div>
         </div>
 
         {/* List */}
-        <div className="flex-1 overflow-y-auto p-3 space-y-1 scrollbar-hide">
+        <div className="flex-1 overflow-y-auto px-4 pb-6 space-y-2 scrollbar-hide">
           {isLoading && (
-            <div className="flex justify-center p-8">
+            <div className="flex flex-col items-center justify-center p-12 gap-4">
               <Loader2 className="w-8 h-8 animate-spin text-primary-500" />
+              <span className="text-xs font-black text-slate-400 uppercase tracking-widest">Loading Chats</span>
             </div>
           )}
 
@@ -85,35 +89,47 @@ const ChatLayout = () => {
                 key={conv.id} 
                 to={`/chat/${conv.id}`}
                 className={cn(
-                  "flex items-center gap-3 p-3 rounded-2xl transition-all group cursor-pointer relative",
-                  isActive ? "bg-primary-50 ring-1 ring-primary-200" : "hover:bg-white/80"
+                  "flex items-center gap-4 p-3.5 rounded-3xl transition-all duration-300 group cursor-pointer relative",
+                  isActive 
+                    ? "bg-white shadow-xl shadow-slate-200/50 scale-[1.02] border border-slate-100" 
+                    : "hover:bg-white/60"
                 )}
               >
                 {isActive && (
-                  <div className="absolute left-0 top-1/2 -translate-y-1/2 w-1.5 h-8 bg-primary-500 rounded-r-full" />
+                  <motion.div 
+                    layoutId="active-pill"
+                    className="absolute left-0 top-1/2 -translate-y-1/2 w-1.5 h-8 bg-slate-900 rounded-r-full" 
+                  />
                 )}
                 
-                <div className="relative">
-                  <div className="w-12 h-12 rounded-[1.25rem] bg-gradient-to-br from-slate-700 to-slate-900 flex items-center justify-center text-white font-bold text-lg shadow-sm shrink-0">
-                    {initial}
+                <div className="relative shrink-0">
+                  <div className="w-14 h-14 rounded-[20px] bg-gradient-to-br from-slate-100 to-slate-200 border border-white flex items-center justify-center text-slate-800 font-black text-xl shadow-inner overflow-hidden">
+                    <img 
+                      src={`https://api.dicebear.com/7.x/avataaars/svg?seed=${displayName}`} 
+                      alt={displayName}
+                      className="w-full h-full object-cover"
+                    />
                   </div>
                   {isOnline && (
-                    <div className="absolute -bottom-0.5 -right-0.5 w-3.5 h-3.5 bg-emerald-500 rounded-full border-2 border-white shadow-sm ring-1 ring-emerald-600/20" />
+                    <div className="absolute -bottom-0.5 -right-0.5 w-4 h-4 bg-emerald-500 rounded-full border-[3px] border-white shadow-sm" />
                   )}
                 </div>
 
                 <div className="flex-1 min-w-0">
                   <div className="flex justify-between items-baseline mb-0.5">
-                    <h4 className={cn("font-bold truncate text-sm", isActive ? "text-primary-900" : "text-slate-800")}>
+                    <h4 className="font-extrabold truncate text-[15px] text-slate-900 tracking-tight">
                       {displayName}
                     </h4>
                     {conv.updatedAt && (
-                      <span className={cn("text-[10px] font-bold shrink-0", isActive ? "text-primary-600" : "text-slate-400")}>
+                      <span className="text-[10px] font-black shrink-0 text-slate-400 tracking-tighter uppercase">
                         {new Date(conv.updatedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                       </span>
                     )}
                   </div>
-                  <p className={cn("text-[13px] truncate", isActive ? "text-primary-700 font-medium" : "text-slate-500")}>
+                  <p className={cn(
+                    "text-[13px] truncate tracking-tight",
+                    isActive ? "text-slate-600 font-bold" : "text-slate-400 font-medium"
+                  )}>
                     {lastMessage}
                   </p>
                 </div>
@@ -140,26 +156,36 @@ const ChatLayout = () => {
 
       {/* Main Chat Area */}
       <div className={cn(
-        "flex-1 flex flex-col h-full bg-white relative",
+        "flex-1 flex flex-col h-full bg-slate-50/20 backdrop-blur-sm relative",
         !isChatSelected ? "hidden sm:flex" : "flex"
       )}>
         <Routes>
           <Route path="/" element={
-            <div className="flex-1 flex flex-col items-center justify-center text-center p-8 bg-slate-50/30">
-              <div className="w-24 h-24 rounded-full bg-primary-50 flex items-center justify-center mb-6 ring-8 ring-primary-50/50">
-                <MessageCircle className="w-10 h-10 text-primary-500" />
-              </div>
-              <div className="inline-block px-3 py-1 bg-white border border-slate-200 rounded-full text-xs font-bold text-slate-500 mb-4 shadow-sm uppercase tracking-widest">
-                Uni-Connect Chat
-              </div>
-              <h3 className="text-2xl font-black text-slate-900 mb-2">Your Messages</h3>
-              <p className="text-slate-500 font-medium max-w-sm mb-6">Choose an existing conversation or start a new one to connect with students.</p>
-              <button 
-                onClick={() => setIsNewChatOpen(true)}
-                className="px-6 py-2.5 bg-primary-600 hover:bg-primary-700 text-white font-bold rounded-xl transition-all shadow-lg hover:shadow-xl hover:-translate-y-0.5"
+            <div className="flex-1 flex flex-col items-center justify-center text-center p-12 overflow-hidden relative">
+              <div className="absolute inset-0 bg-[url('https://www.transparenttextures.com/patterns/cubes.png')] opacity-10 pointer-events-none" />
+              
+              <motion.div 
+                initial={{ scale: 0.8, opacity: 0 }}
+                animate={{ scale: 1, opacity: 1 }}
+                className="w-32 h-32 rounded-[40px] bg-white flex items-center justify-center mb-8 shadow-2xl relative z-10"
               >
-                Start New Chat
-              </button>
+                <div className="w-24 h-24 rounded-[30px] bg-primary-50 flex items-center justify-center ring-8 ring-primary-50/30">
+                  <MessageCircle className="w-12 h-12 text-primary-500" />
+                </div>
+              </motion.div>
+
+              <h3 className="text-3xl font-black text-slate-900 mb-3 tracking-tighter relative z-10">Encrypted Messaging</h3>
+              <p className="text-slate-500 font-bold text-[15px] max-w-sm mb-8 leading-relaxed relative z-10">Select a secure conversation to start connecting with your campus community.</p>
+              
+              <motion.button 
+                whileHover={{ y: -2 }}
+                whileTap={{ scale: 0.98 }}
+                onClick={() => setIsNewChatOpen(true)}
+                className="px-8 py-3.5 bg-slate-900 hover:bg-black text-white font-black rounded-2xl transition-all shadow-xl hover:shadow-2xl relative z-10 flex items-center gap-3"
+              >
+                <Edit className="w-5 h-5" />
+                Start Chatting
+              </motion.button>
             </div>
           } />
           <Route path="/:id" element={<ChatWindow />} />

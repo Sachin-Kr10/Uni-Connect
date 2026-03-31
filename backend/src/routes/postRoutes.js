@@ -10,5 +10,6 @@ router.get('/feed', postController.getFeed);
 router.post('/:postId/like', postController.toggleLike);
 router.post('/:postId/comment', postController.addComment);
 router.get('/:postId/comments', postController.getComments);
+router.get('/user/:userId', postController.getUserPosts);
 
 module.exports = router;

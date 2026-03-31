@@ -8,6 +8,7 @@ const GroupMember = require('./GroupMember');
 const Conversation = require('./Conversation');
 const Message = require('./Message');
 const OTP = require('./OTP');
+const Story = require('./Story');
 
 // --- User & Post ---
 User.hasMany(Post, { foreignKey: 'userId', onDelete: 'CASCADE' });
@@ -62,6 +63,10 @@ ConversationParticipant.belongsTo(Conversation, { foreignKey: 'conversationId' }
 User.hasMany(ConversationParticipant, { foreignKey: 'userId', onDelete: 'CASCADE' });
 ConversationParticipant.belongsTo(User, { foreignKey: 'userId' });
 
+// --- Stories ---
+User.hasMany(Story, { foreignKey: 'userId', onDelete: 'CASCADE' });
+Story.belongsTo(User, { foreignKey: 'userId' });
+
 module.exports = {
   sequelize,
   User,
@@ -73,5 +78,6 @@ module.exports = {
   Conversation,
   Message,
   ConversationParticipant,
-  OTP
+  OTP,
+  Story
 };

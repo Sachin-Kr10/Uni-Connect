@@ -136,10 +136,31 @@ const getComments = async (req, res) => {
   }
 };
 
+// Get all posts by a specific user
+const getUserPosts = async (req, res) => {
+  try {
+    const { userId } = req.params;
+    const posts = await Post.findAll({
+      where: { userId, groupId: null }, // Only public posts for profile
+      include: [
+        { model: User, attributes: ['id', 'name'] },
+        { model: Like, attributes: ['userId'] }
+      ],
+      order: [['createdAt', 'DESC']]
+    });
+
+    res.json(posts);
+  } catch (error) {
+    console.error('Error fetching user posts:', error);
+    res.status(500).json({ message: 'Server error' });
+  }
+};
+
 module.exports = {
   createPost,
   getFeed,
   toggleLike,
   addComment,
-  getComments
+  getComments,
+  getUserPosts
 };
