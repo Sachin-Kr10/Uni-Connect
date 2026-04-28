@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { X, ChevronLeft, ChevronRight } from 'lucide-react';
-import { motion, AnimatePresence } from 'framer-motion';
+import { motion } from 'framer-motion';
+import { getAvatar } from '../../utils/avatar';
 
 const StoryViewer = ({ groupedStories, initialUserIndex = 0, onClose }) => {
   const [userIndex, setUserIndex] = useState(initialUserIndex);
@@ -19,7 +20,7 @@ const StoryViewer = ({ groupedStories, initialUserIndex = 0, onClose }) => {
         }
         return prev + 1;
       });
-    }, 50); // 5 seconds per story (100 * 50ms)
+    }, 50);
 
     return () => clearInterval(timer);
   }, [userIndex, storyIndex]);
@@ -53,7 +54,6 @@ const StoryViewer = ({ groupedStories, initialUserIndex = 0, onClose }) => {
 
   return (
     <div className="fixed inset-0 z-[100] bg-black/95 flex items-center justify-center backdrop-blur-md">
-      {/* Close Button */}
       <button 
         onClick={onClose}
         className="absolute top-6 right-6 text-white/70 hover:text-white p-2 z-[110]"
@@ -61,7 +61,6 @@ const StoryViewer = ({ groupedStories, initialUserIndex = 0, onClose }) => {
         <X className="w-8 h-8" />
       </button>
 
-      {/* Navigation Buttons */}
       <div className="absolute inset-y-0 left-0 w-20 flex items-center justify-center z-[110]">
         <button onClick={handlePrev} className="text-white/30 hover:text-white p-4 transition-colors">
           <ChevronLeft className="w-10 h-10" />
@@ -73,7 +72,6 @@ const StoryViewer = ({ groupedStories, initialUserIndex = 0, onClose }) => {
         </button>
       </div>
 
-      {/* Story Content Card */}
       <motion.div 
         key={`${userIndex}-${storyIndex}`}
         initial={{ opacity: 0, scale: 0.9 }}
@@ -81,7 +79,6 @@ const StoryViewer = ({ groupedStories, initialUserIndex = 0, onClose }) => {
         exit={{ opacity: 0, scale: 0.9 }}
         className="relative w-full max-w-[450px] aspect-[9/16] bg-slate-900 rounded-3xl overflow-hidden shadow-2xl border border-white/10"
       >
-        {/* Progress Bars */}
         <div className="absolute top-4 left-4 right-4 flex gap-1 z-20">
           {currentUser.stories.map((_, i) => (
             <div key={i} className="h-1 flex-1 bg-white/20 rounded-full overflow-hidden">
@@ -95,11 +92,10 @@ const StoryViewer = ({ groupedStories, initialUserIndex = 0, onClose }) => {
           ))}
         </div>
 
-        {/* User Info Header */}
         <div className="absolute top-8 left-4 right-4 flex items-center gap-3 z-20">
           <div className="w-10 h-10 rounded-full border-2 border-white/50 p-0.5 pointer-events-none">
             <img 
-              src={`https://api.dicebear.com/7.x/avataaars/svg?seed=${currentUser.user.name}`} 
+              src={getAvatar(currentUser.user)} 
               alt="avatar" 
               className="w-full h-full rounded-full object-cover"
             />
@@ -112,14 +108,12 @@ const StoryViewer = ({ groupedStories, initialUserIndex = 0, onClose }) => {
           </div>
         </div>
 
-        {/* Media */}
         <img 
           src={currentStory.mediaUrl} 
           alt="Story" 
           className="w-full h-full object-cover select-none pointer-events-none" 
         />
         
-        {/* Interaction Areas (simplified) */}
         <div className="absolute inset-0 flex">
            <div className="w-1/3 h-full cursor-pointer" onClick={handlePrev} />
            <div className="w-2/3 h-full cursor-pointer" onClick={handleNext} />

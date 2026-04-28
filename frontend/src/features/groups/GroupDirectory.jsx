@@ -1,7 +1,8 @@
 import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { Search, Users, Plus, Loader2, ArrowRight, Sparkles, Globe, ShieldCheck } from 'lucide-react';
+import { Search, Users, Plus, Loader2, ArrowRight, Globe, CheckCircle, X } from 'lucide-react';
 import api from '../../services/api';
+import { useToast } from '../../context/ToastContext';
 import { motion, AnimatePresence } from 'framer-motion';
 import { clsx } from 'clsx';
 import { twMerge } from 'tailwind-merge';
@@ -10,7 +11,11 @@ const cn = (...inputs) => twMerge(clsx(inputs));
 
 const GroupDirectory = () => {
   const queryClient = useQueryClient();
+  const { showToast } = useToast();
   const [searchQuery, setSearchQuery] = useState('');
+  const [showCreateModal, setShowCreateModal] = useState(false);
+  const [newGroup, setNewGroup] = useState({ name: '', description: '' });
+  const [joinedGroups, setJoinedGroups] = useState(new Set());
 
   // Fetch Groups
   const { data: groups, isLoading } = useQuery({
@@ -24,190 +29,235 @@ const GroupDirectory = () => {
   // Join Group Mutation
   const joinGroupMutation = useMutation({
     mutationFn: (groupId) => api.post(`/groups/${groupId}/join`),
+    onSuccess: (data, groupId) => {
+      queryClient.invalidateQueries({ queryKey: ['groups'] });
+      setJoinedGroups(prev => new Set([...prev, groupId]));
+      showToast('Joined community!', 'success');
+    },
+    onError: (err) => {
+      const msg = err.response?.data?.message || 'Failed to join';
+      showToast(msg, 'error');
+    }
+  });
+
+  // Create Group Mutation
+  const createGroupMutation = useMutation({
+    mutationFn: (data) => api.post('/groups', data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['groups'] });
+      setShowCreateModal(false);
+      setNewGroup({ name: '', description: '' });
+      showToast('Community created!', 'success');
+    },
+    onError: (err) => {
+      showToast(err.response?.data?.message || 'Failed to create', 'error');
     }
   });
 
   const filteredGroups = groups?.filter(g => g.name.toLowerCase().includes(searchQuery.toLowerCase())) || [];
 
   return (
-    <div className="w-full">
-      {/* Premium Hero Section */}
-      <div className="relative mb-12 rounded-[40px] overflow-hidden bg-slate-900 px-8 py-16 sm:px-12 sm:py-20 shadow-2xl">
-        <div className="absolute inset-0 bg-gradient-to-br from-indigo-600/40 via-purple-600/40 to-blue-600/40 opacity-50" />
-        <div className="absolute inset-0 bg-[url('https://www.transparenttextures.com/patterns/cubes.png')] opacity-10" />
-        <motion.div 
-          animate={{ scale: [1, 1.1, 1], rotate: [0, 5, 0] }}
-          transition={{ duration: 20, repeat: Infinity }}
-          className="absolute -top-24 -right-24 w-96 h-96 bg-primary-500/20 blur-[120px] rounded-full" 
+    <div className="w-full bg-surface min-h-[calc(100vh-80px)] font-[family-name:var(--font-body)] text-on-surface">
+      
+      {/* Editorial Hero Section */}
+      <section className="relative h-80 w-full overflow-hidden mb-8 rounded-b-[2rem] sm:rounded-3xl shrink-0">
+        <img 
+          className="w-full h-full object-cover" 
+          src="https://images.unsplash.com/photo-1517486808906-6ca8b3f04846?q=80&w=2698&auto=format&fit=crop" 
+          alt="University Clubs" 
         />
-        
-        <div className="relative z-10 max-w-2xl">
-          <motion.div 
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-white/10 backdrop-blur-md border border-white/20 text-white text-[11px] font-black uppercase tracking-[0.2em] mb-6"
-          >
-            <Sparkles className="w-3.5 h-3.5 text-yellow-400" />
-            Vibrant Communities
-          </motion.div>
-          <h1 className="text-4xl sm:text-6xl font-black text-white tracking-tighter mb-6 leading-[0.9]">
-            University <span className="text-transparent bg-clip-text bg-gradient-to-r from-sky-400 to-indigo-300">Clubs</span>
-          </h1>
-          <p className="text-lg sm:text-xl text-indigo-100/80 font-bold leading-relaxed mb-10 max-w-md">
-            Connect with like-minded students, share your passions, and build something together.
-          </p>
-          
-          <div className="flex flex-wrap gap-4">
-             <div className="flex -space-x-3">
-               {[1,2,3,4].map(i => (
-                 <div key={i} className="w-10 h-10 rounded-full border-2 border-slate-900 bg-slate-800 flex items-center justify-center text-[10px] font-black text-white">
-                   {String.fromCharCode(64 + i)}
-                 </div>
-               ))}
-               <div className="w-10 h-10 rounded-full border-2 border-slate-900 bg-indigo-600 flex items-center justify-center text-[10px] font-black text-white">
-                 +5k
-               </div>
-             </div>
-             <div className="flex flex-col justify-center">
-                <span className="text-white font-black text-sm">Joined by thousands</span>
-                <span className="text-indigo-300/60 text-[10px] font-black uppercase tracking-widest">Active Campus Hub</span>
-             </div>
+        <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/30 to-transparent flex flex-col justify-end p-8 lg:p-12">
+          <div className="flex flex-col md:flex-row md:items-end md:justify-between gap-6 max-w-7xl mx-auto w-full">
+            <div>
+              <span className="inline-block px-3 py-1 bg-primary-500/30 backdrop-blur-md text-white rounded-full text-xs font-bold uppercase tracking-widest mb-4 border border-white/10">
+                Official Directory
+              </span>
+              <h1 className="text-4xl md:text-6xl font-extrabold text-white font-[family-name:var(--font-display)] tracking-tighter">
+                Discover Communities
+              </h1>
+            </div>
+            <button 
+              onClick={() => setShowCreateModal(true)}
+              className="bg-gradient-to-r from-primary-600 to-tertiary-500 text-white px-8 py-4 rounded-full font-[family-name:var(--font-display)] font-bold shadow-2xl hover:scale-105 active:scale-95 transition-all w-full md:w-auto"
+            >
+              Create a Club
+            </button>
           </div>
         </div>
-      </div>
+      </section>
 
-      {/* Modern Filter & Search Bar */}
-      <div className="mb-12 flex flex-col sm:flex-row gap-4 sm:items-center justify-between">
-        <div className="relative group flex-1 max-w-md">
-          <Search className="w-5 h-5 absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-primary-500 transition-colors" />
-          <input 
-            type="text" 
-            placeholder="Find a club by name or keyword..." 
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            className="w-full pl-12 pr-6 py-4 bg-white border-2 border-transparent focus:border-white focus:ring-8 focus:ring-primary-500/5 rounded-3xl outline-none transition-all text-sm font-bold placeholder:text-slate-400 shadow-xl shadow-slate-200/40"
-          />
-        </div>
+      <div className="max-w-7xl mx-auto px-6 lg:px-10 pb-20">
         
-        <div className="flex items-center gap-3">
-           <button className="px-6 py-4 bg-white border border-slate-200 rounded-3xl font-black text-[11px] uppercase tracking-widest text-slate-500 hover:text-slate-900 transition-all hover:shadow-lg active:scale-95">
-              Categories
-           </button>
-           <motion.button 
-            whileHover={{ y: -2 }}
-            whileTap={{ scale: 0.98 }}
-            className="flex items-center gap-2.5 px-8 py-4 bg-slate-900 hover:bg-black text-white rounded-[28px] font-black text-[11px] uppercase tracking-[0.15em] transition-all shadow-xl shadow-slate-900/20"
-           >
-             <Plus className="w-5 h-5 stroke-[2.5px]" />
-             Create New Club
-           </motion.button>
-        </div>
-      </div>
-
-      {isLoading ? (
-        <div className="flex flex-col items-center justify-center py-32 gap-6">
-          <div className="relative">
-            <div className="w-20 h-20 rounded-full border-4 border-slate-100 border-t-primary-500 animate-spin" />
-            <Globe className="w-8 h-8 text-primary-500 absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 animate-pulse" />
+        {/* Search Bar */}
+        <div className="mb-10 flex flex-col sm:flex-row gap-4 sm:items-center justify-between">
+          <div className="relative group w-full max-w-lg">
+            <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-on-surface-variant w-5 h-5 transition-colors group-focus-within:text-primary-600" />
+            <input 
+              type="text" 
+              placeholder="Find a community by name..." 
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="w-full pl-12 pr-6 py-4 bg-surface-container-lowest border-0 focus:ring-2 focus:ring-primary-500/20 rounded-[1.5rem] outline-none transition-all text-sm font-bold placeholder:text-on-surface-variant/60 shadow-sm text-on-surface"
+            />
           </div>
-          <span className="text-xs font-black text-slate-300 uppercase tracking-[0.2em]">Synchronizing Directory</span>
         </div>
-      ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-8">
-          <AnimatePresence mode="popLayout">
-            {filteredGroups.map((group, index) => (
-              <motion.div 
-                layout
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                exit={{ opacity: 0, scale: 0.9 }}
-                transition={{ delay: index * 0.05 }}
-                key={group.id} 
-                className="group relative bg-white rounded-[40px] overflow-hidden border border-slate-100 shadow-sm hover:shadow-2xl hover:shadow-indigo-100/50 hover:-translate-y-2 transition-all duration-500 cursor-pointer"
-              >
-                {/* Visual Header */}
-                <div className="h-40 bg-slate-900 relative">
-                  <img 
-                    src={`https://images.unsplash.com/photo-${1522202176988 + index}-670faddee67d?auto=format&fit=crop&q=80&w=600`}
-                    alt={group.name} 
-                    className="w-full h-full object-cover opacity-60 transition-transform duration-700 group-hover:scale-110" 
-                  />
-                  <div className="absolute inset-0 bg-gradient-to-t from-slate-900 to-transparent opacity-80" />
-                  
-                  {/* Status Badges */}
-                  <div className="absolute top-6 left-6 flex items-center gap-2">
-                    <span className="px-3 py-1 bg-white/20 backdrop-blur-md rounded-lg text-[10px] font-black uppercase tracking-widest text-white border border-white/20">
-                      Official
-                    </span>
-                  </div>
-                  <div className="absolute top-6 right-6">
-                    <div className="w-10 h-10 rounded-2xl bg-white/10 backdrop-blur-md flex items-center justify-center text-white border border-white/20 hover:bg-white hover:text-slate-900 transition-colors">
-                      <ShieldCheck className="w-5 h-5 stroke-[2.5px]" />
-                    </div>
-                  </div>
-                </div>
-                
-                <div className="p-8 pt-0 flex flex-col relative">
-                  {/* Dynamic Logo */}
-                  <div className="w-20 h-20 rounded-[28px] bg-white border-4 border-white shadow-2xl absolute -top-10 left-8 flex items-center justify-center overflow-hidden group-hover:scale-110 transition-transform duration-500">
-                    <div className="w-full h-full bg-gradient-to-br from-indigo-50 to-indigo-100 flex items-center justify-center text-indigo-600 font-black text-3xl">
-                      {group.name.charAt(0)}
-                    </div>
-                  </div>
 
-                  <div className="mt-14 mb-4">
-                    <h3 className="text-2xl font-black text-slate-900 tracking-tight leading-none mb-2">
-                      {group.name}
-                    </h3>
-                    <div className="flex items-center gap-4">
-                      <div className="flex items-center text-slate-500 text-[11px] font-black uppercase tracking-widest gap-2">
-                        <Users className="w-4 h-4 text-primary-500" />
-                        <span>{group.membersCount || 120} Members</span>
+        {isLoading ? (
+          <div className="flex flex-col items-center justify-center py-32 gap-6 bg-surface-container-low rounded-3xl">
+            <div className="relative">
+              <div className="w-20 h-20 rounded-full border-4 border-surface border-t-primary-500 animate-spin" />
+              <Globe className="w-8 h-8 text-primary-500 absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 animate-pulse" />
+            </div>
+            <span className="text-xs font-bold text-on-surface-variant uppercase tracking-[0.2em] font-[family-name:var(--font-display)]">Synchronizing Directory</span>
+          </div>
+        ) : (
+          <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-8">
+            <AnimatePresence mode="popLayout">
+              {filteredGroups.map((group, index) => {
+                const isJoined = joinedGroups.has(group.id);
+                return (
+                  <motion.div 
+                    layout
+                    initial={{ opacity: 0, y: 20 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={{ opacity: 0, scale: 0.9 }}
+                    transition={{ delay: index * 0.05 }}
+                    key={group.id} 
+                    className="group bg-surface-container-lowest rounded-3xl overflow-hidden shadow-sm hover:shadow-xl hover:shadow-primary-900/5 transition-all duration-500 flex flex-col"
+                  >
+                    <div className="h-48 relative overflow-hidden bg-surface-container">
+                      <img 
+                        src={`https://images.unsplash.com/photo-${1522202176988 + index}-670faddee67d?auto=format&fit=crop&q=80&w=600`}
+                        alt={group.name} 
+                        className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-105" 
+                      />
+                      <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent" />
+                      <div className="absolute top-4 right-4 bg-black/40 backdrop-blur-md p-2 rounded-full border border-white/10">
+                        <span className="material-symbols-outlined text-white text-sm" style={{fontVariationSettings: "'FILL' 1"}}>groups</span>
+                      </div>
+                      <div className="absolute bottom-4 left-6 right-6">
+                         <h3 className="text-2xl font-black text-white font-[family-name:var(--font-display)] tracking-tight leading-none mb-1 drop-shadow-md line-clamp-1">
+                          {group.name}
+                         </h3>
+                         <p className="text-white/80 text-xs font-bold uppercase tracking-widest drop-shadow-md">
+                           Official Club
+                         </p>
                       </div>
                     </div>
-                  </div>
+                    
+                    <div className="p-6 md:p-8 flex flex-col flex-1 relative bg-surface-container-lowest z-10">
+                      <div className="flex items-center gap-4 mb-5 border-b border-surface-container pb-4">
+                          <div className="flex items-center text-on-surface-variant text-xs font-bold uppercase tracking-widest gap-1.5 flex-1">
+                            <Users className="w-4 h-4 text-secondary-500" />
+                            <span>{group.membersCount || 'New'}</span>
+                          </div>
+                          <div className="flex items-center text-on-surface-variant text-xs font-bold uppercase tracking-widest gap-1.5">
+                            <CheckCircle className="w-4 h-4 text-green-500" />
+                            <span>Verified</span>
+                          </div>
+                      </div>
 
-                  <p className="text-slate-500 font-bold text-sm leading-relaxed mb-8 line-clamp-2">
-                    {group.description || "A community dedicated to learning, growing, and building an active campus life for all students."}
-                  </p>
+                      <p className="text-on-surface font-medium text-sm leading-relaxed mb-8 line-clamp-3 flex-1">
+                        {group.description || "A dynamic community dedicated to collective learning, sharing passions, and building an energetic environment for all university students."}
+                      </p>
 
-                  <div className="flex items-center justify-between gap-4 mt-auto">
-                    <motion.button 
-                      whileHover={{ scale: 1.02 }}
-                      whileTap={{ scale: 0.98 }}
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        joinGroupMutation.mutate(group.id);
-                      }}
-                      disabled={joinGroupMutation.isPending}
-                      className="flex-1 py-4 bg-slate-900 hover:bg-black text-white rounded-2xl font-black text-[11px] uppercase tracking-widest transition-all shadow-lg active:scale-95"
-                    >
-                      {joinGroupMutation.isPending ? <Loader2 className="w-4 h-4 animate-spin mx-auto" /> : "Join Community"}
-                    </motion.button>
-                    <div className="w-12 h-12 rounded-2xl bg-slate-50 flex items-center justify-center text-slate-500 group-hover:bg-primary-500 group-hover:text-white transition-all duration-300">
-                      <ArrowRight className="w-5 h-5" />
+                      <div className="mt-auto">
+                        <motion.button 
+                          whileHover={{ scale: 1.02 }}
+                          whileTap={{ scale: 0.98 }}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            if (!isJoined) joinGroupMutation.mutate(group.id);
+                          }}
+                          disabled={joinGroupMutation.isPending || isJoined}
+                          className={cn(
+                            "w-full flex items-center justify-center gap-2 py-4 rounded-[1.5rem] font-[family-name:var(--font-display)] font-bold text-sm tracking-wide transition-colors",
+                            isJoined 
+                              ? "bg-green-50 text-green-700 cursor-default"
+                              : "bg-surface-container-low hover:bg-primary-50 text-primary-700"
+                          )}
+                        >
+                          {joinGroupMutation.isPending ? <Loader2 className="w-4 h-4 animate-spin mx-auto" /> : isJoined ? (
+                            <><CheckCircle className="w-4 h-4" /> Joined</>
+                          ) : (
+                            <>Join Community <ArrowRight className="w-4 h-4 ml-1" /></>
+                          )}
+                        </motion.button>
+                      </div>
                     </div>
-                  </div>
-                </div>
-              </motion.div>
-            ))}
-          </AnimatePresence>
-        </div>
-      )}
-      
-      {!isLoading && filteredGroups.length === 0 && (
-          <div className="text-center py-32">
-            <div className="w-24 h-24 bg-slate-50 rounded-[40px] flex items-center justify-center mx-auto mb-8 border border-dashed border-slate-200 rotate-12 transition-transform hover:rotate-0">
-               <Users className="w-10 h-10 text-slate-300" />
-            </div>
-            <h3 className="text-2xl font-black text-slate-900 mb-2 tracking-tighter">No clubs matches your search</h3>
-            <p className="text-slate-500 font-bold text-sm tracking-tight max-w-xs mx-auto">
-              Our campus is huge, but we couldn't find that one. Try a different keyword!
-            </p>
+                  </motion.div>
+                );
+              })}
+            </AnimatePresence>
           </div>
-      )}
+        )}
+        
+        {!isLoading && filteredGroups.length === 0 && (
+            <div className="text-center py-32 bg-surface-container-low rounded-[2rem] mt-8">
+              <div className="w-24 h-24 bg-surface-container-lowest rounded-full flex items-center justify-center mx-auto mb-6 shadow-sm">
+                 <span className="material-symbols-outlined text-4xl text-on-surface-variant">search_off</span>
+              </div>
+              <h3 className="text-2xl font-black text-on-surface mb-2 tracking-tighter font-[family-name:var(--font-display)]">No clubs match your search</h3>
+              <p className="text-on-surface-variant font-medium text-sm tracking-tight max-w-sm mx-auto">
+                Try adjusting your search or create a new community!
+              </p>
+            </div>
+        )}
+      </div>
+
+      {/* Create Club Modal */}
+      <AnimatePresence>
+        {showCreateModal && (
+          <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
+            <motion.div 
+              initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+              onClick={() => setShowCreateModal(false)}
+              className="absolute inset-0 bg-on-surface/40 backdrop-blur-md"
+            />
+            <motion.div
+              initial={{ scale: 0.95, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} exit={{ scale: 0.95, opacity: 0 }}
+              className="bg-surface-lowest rounded-[2rem] p-8 w-full max-w-md relative z-10 shadow-2xl border border-surface-container/30"
+            >
+              <div className="flex items-center justify-between mb-6">
+                <h3 className="text-2xl font-black text-on-surface font-[family-name:var(--font-display)] tracking-tighter">Create a Club</h3>
+                <button onClick={() => setShowCreateModal(false)} className="p-2 text-on-surface-variant hover:bg-surface-container rounded-xl transition-colors">
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
+              <div className="space-y-5">
+                <div>
+                  <label className="block text-[11px] font-black uppercase tracking-[0.2em] text-on-surface-variant mb-2">Club Name</label>
+                  <input
+                    type="text"
+                    value={newGroup.name}
+                    onChange={(e) => setNewGroup(prev => ({ ...prev, name: e.target.value }))}
+                    placeholder="e.g. AI Research Lab"
+                    className="w-full bg-surface-container-low border-0 rounded-xl px-4 py-3 focus:ring-2 focus:ring-primary-500/20 text-on-surface font-bold placeholder:text-on-surface-variant/50"
+                  />
+                </div>
+                <div>
+                  <label className="block text-[11px] font-black uppercase tracking-[0.2em] text-on-surface-variant mb-2">Description</label>
+                  <textarea
+                    value={newGroup.description}
+                    onChange={(e) => setNewGroup(prev => ({ ...prev, description: e.target.value }))}
+                    placeholder="What's this community about?"
+                    rows={3}
+                    className="w-full bg-surface-container-low border-0 rounded-xl px-4 py-3 focus:ring-2 focus:ring-primary-500/20 text-on-surface font-medium resize-none placeholder:text-on-surface-variant/50"
+                  />
+                </div>
+                <motion.button
+                  whileTap={{ scale: 0.98 }}
+                  onClick={() => createGroupMutation.mutate(newGroup)}
+                  disabled={!newGroup.name.trim() || createGroupMutation.isPending}
+                  className="w-full py-4 bg-gradient-to-r from-primary-600 to-tertiary-500 text-white rounded-xl font-bold font-[family-name:var(--font-display)] shadow-lg disabled:opacity-50 flex items-center justify-center gap-2"
+                >
+                  {createGroupMutation.isPending ? <Loader2 className="w-4 h-4 animate-spin" /> : 'Create Community'}
+                </motion.button>
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
     </div>
   );
 };

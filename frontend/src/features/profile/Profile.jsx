@@ -1,16 +1,33 @@
+import { useState, useRef } from 'react';
 import { useAuth } from '../../context/AuthContext';
-import { Mail, Calendar, Edit3, Award, Grid, Bookmark, Tag, Loader2, MapPin, LogOut, MessageSquare, Heart, MessageCircle } from 'lucide-react';
+import { useToast } from '../../context/ToastContext';
+import { getAvatar } from '../../utils/avatar';
+import { Mail, Calendar, Edit3, Award, Grid, Bookmark, Tag, Loader2, MapPin, LogOut, MessageSquare, Heart, MessageCircle, Camera } from 'lucide-react';
 import { motion } from 'framer-motion';
 import { useQuery } from '@tanstack/react-query';
 import api from '../../services/api';
-import { useParams } from 'react-router-dom';
+import { useParams, useNavigate, Link } from 'react-router-dom';
 
 const Profile = () => {
-  const { user: currentUser } = useAuth();
+  const { user: currentUser, logout, updateUser } = useAuth();
+  const { showToast } = useToast();
+  const navigate = useNavigate();
   const { id: userId } = useParams();
+  const fileInputRef = useRef(null);
+  const [activeTab, setActiveTab] = useState('posts');
   
-  // Decide which user to fetch (current or from URL)
+  const isOwnProfile = userId === currentUser?.id;
   const targetId = userId || currentUser?.id;
+
+  // Fetch profile data
+  const { data: profileData } = useQuery({
+    queryKey: ['user-profile', targetId],
+    queryFn: async () => {
+      const res = await api.get(`/users/${targetId}`);
+      return res.data;
+    },
+    enabled: !!targetId
+  });
 
   const { data: posts, isLoading: isPostsLoading } = useQuery({
     queryKey: ['user-posts', targetId],
@@ -21,157 +38,255 @@ const Profile = () => {
     enabled: !!targetId
   });
 
+  const displayUser = profileData || currentUser;
+  const avatar = profileData?.profileImage || (isOwnProfile ? getAvatar(currentUser) : getAvatar(profileData));
+
+  const handleImageUpload = async (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+    try {
+      const fd = new FormData();
+      fd.append('image', file);
+      const res = await api.post('/upload', fd, {
+        headers: { 'Content-Type': 'multipart/form-data' }
+      });
+      const url = res.data.url;
+      await api.put('/users/profile', { profileImage: url });
+      updateUser({ profileImage: url });
+      showToast('Profile photo updated!', 'success');
+    } catch (err) {
+      showToast('Failed to upload image', 'error');
+    }
+  };
+
+  const handleLogout = async () => {
+    await logout();
+    navigate('/login');
+  };
+
   return (
-    <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-10 pb-32">
-      {/* Premium Profile Header */}
-      <div className="relative mb-12">
-        {/* Animated Mesh Gradient Cover */}
-        <div className="w-full h-48 sm:h-64 rounded-[32px] bg-gradient-to-br from-sky-400 via-indigo-500 to-purple-600 shadow-xl overflow-hidden relative group">
-           <div className="absolute inset-0 bg-[url('https://www.transparenttextures.com/patterns/cubes.png')] opacity-10" />
+    <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-10 pb-32 bg-surface min-h-[calc(100vh-80px)] font-[family-name:var(--font-body)] text-on-surface">
+      {/* Editorial Profile Header */}
+      <div className="relative mb-16">
+        {/* Abstract Mesh Gradient Cover */}
+        <div className="w-full h-48 sm:h-64 rounded-[2rem] bg-gradient-to-br from-primary-400 via-primary-600 to-tertiary-600 shadow-md overflow-hidden relative group">
+           <div className="absolute inset-0 bg-[url('https://www.transparenttextures.com/patterns/cubes.png')] opacity-[0.05]" />
            <motion.div 
              animate={{ 
-               scale: [1, 1.1, 1],
-               rotate: [0, 5, 0]
+               scale: [1, 1.2, 1],
+               rotate: [0, -10, 0]
              }} 
-             transition={{ duration: 20, repeat: Infinity, ease: "linear" }}
-             className="absolute -top-24 -right-24 w-96 h-96 bg-white/20 blur-3xl rounded-full" 
+             transition={{ duration: 25, repeat: Infinity, ease: "linear" }}
+             className="absolute -bottom-24 -left-24 w-96 h-96 bg-primary-300/30 blur-[100px] rounded-full" 
            />
         </div>
 
         {/* Avatar & Basic Info Container */}
-        <div className="px-8 -mt-16 sm:-mt-20 flex flex-col sm:flex-row sm:items-end justify-between gap-6">
+        <div className="px-6 sm:px-12 -mt-16 sm:-mt-20 flex flex-col sm:flex-row sm:items-end justify-between gap-6 relative z-10">
           <div className="flex flex-col sm:flex-row items-center sm:items-end gap-6">
             <div className="relative group">
-              <div className="w-32 h-32 sm:w-40 sm:h-40 rounded-[40px] bg-white p-1.5 shadow-2xl transition-transform hover:scale-105 active:scale-95 cursor-pointer">
-                <div className="w-full h-full rounded-[34px] bg-gradient-to-br from-slate-50 to-slate-100 flex items-center justify-center overflow-hidden border border-slate-100">
+              <div className="w-32 h-32 sm:w-40 sm:h-40 rounded-[2.5rem] bg-surface-container p-2 shadow-xl hover:shadow-2xl hover:-translate-y-1 transition-all duration-300 cursor-pointer">
+                <div className="w-full h-full rounded-[2rem] bg-gradient-to-br from-surface-container-high to-surface-container-lowest flex items-center justify-center overflow-hidden">
                   <img 
-                    src={`https://api.dicebear.com/7.x/avataaars/svg?seed=${currentUser?.name}`} 
+                    src={avatar} 
                     alt="avatar" 
                     className="w-full h-full object-cover"
                   />
                 </div>
               </div>
-              <div className="absolute bottom-2 right-2 w-8 h-8 bg-green-500 border-4 border-white rounded-full shadow-lg" />
+              {isOwnProfile && (
+                <>
+                  <button 
+                    onClick={() => fileInputRef.current?.click()}
+                    className="absolute bottom-4 right-4 w-8 h-8 bg-primary-600 text-white rounded-full shadow-lg flex items-center justify-center hover:bg-primary-700 active:scale-90 transition-all z-10"
+                  >
+                    <Camera className="w-4 h-4" />
+                  </button>
+                  <input ref={fileInputRef} type="file" accept="image/*" className="hidden" onChange={handleImageUpload} />
+                </>
+              )}
+              <div className="absolute bottom-4 left-4 w-6 h-6 bg-green-500 border-4 border-surface-container rounded-full shadow-md z-10" />
             </div>
 
             <div className="flex flex-col items-center sm:items-start pb-2">
-              <h1 className="text-3xl sm:text-4xl font-black text-slate-900 tracking-tighter mb-1 select-none">
-                {currentUser?.name}
+              <h1 className="text-3xl sm:text-5xl font-black text-on-surface tracking-tighter mb-2 font-[family-name:var(--font-display)] select-none">
+                {displayUser?.name}
               </h1>
-              <div className="flex items-center gap-3 text-slate-500 font-bold text-sm tracking-tight">
-                 <span className="flex items-center gap-1.5 bg-slate-100 px-3 py-1 rounded-full text-[11px] uppercase tracking-widest text-slate-600">
-                    <Award className="w-3.5 h-3.5 text-primary-500" />
-                    {currentUser?.role}
+              <div className="flex flex-wrap items-center justify-center sm:justify-start gap-3 text-on-surface-variant font-bold text-sm tracking-tight">
+                 <span className="flex items-center gap-1.5 bg-surface-container-highest px-3 py-1.5 rounded-full text-xs uppercase tracking-widest text-on-surface">
+                    <Award className="w-4 h-4 text-primary-600" />
+                    {displayUser?.role}
                  </span>
-                 <span className="flex items-center gap-1 text-[13px] font-medium">
-                    <MapPin className="w-3.5 h-3.5" />
-                    Mumbai, India
+                 <span className="flex items-center gap-1.5 text-xs font-semibold uppercase tracking-widest">
+                    <MapPin className="w-4 h-4 text-on-surface-variant" />
+                    Global Campus
                  </span>
               </div>
             </div>
           </div>
 
-          <div className="flex items-center gap-3 pb-2">
-            <button className="flex items-center gap-2 px-6 py-2.5 bg-slate-900 hover:bg-black text-white rounded-2xl font-bold text-sm transition-all shadow-lg active:scale-95">
-              <Edit3 className="w-4 h-4" />
-              Edit Profile
-            </button>
-            <button className="p-2.5 bg-white border border-slate-200 rounded-2xl text-slate-600 hover:bg-slate-50 transition-all active:scale-90 shadow-sm">
-              <LogOut className="w-5 h-5" />
-            </button>
+          <div className="flex items-center justify-center sm:justify-end gap-3 pb-2 w-full sm:w-auto mt-4 sm:mt-0">
+            {isOwnProfile ? (
+              <>
+                <button 
+                  onClick={() => navigate('/settings')}
+                  className="flex-1 sm:flex-none flex items-center justify-center gap-2 px-8 py-3 bg-on-surface hover:opacity-90 text-surface rounded-full font-bold text-sm transition-all shadow-lg active:scale-95 font-[family-name:var(--font-display)]"
+                >
+                  <Edit3 className="w-4 h-4" />
+                  Edit Profile
+                </button>
+                <button 
+                  onClick={handleLogout}
+                  className="p-3 bg-surface-container-lowest hover:bg-surface-container-high rounded-full text-on-surface-variant transition-all active:scale-90 shadow-sm border-0"
+                >
+                  <LogOut className="w-5 h-5" />
+                </button>
+              </>
+            ) : (
+              <button className="flex-1 sm:flex-none flex items-center justify-center gap-2 px-8 py-3 bg-gradient-to-r from-primary-600 to-tertiary-500 text-white rounded-full font-bold text-sm transition-all shadow-lg active:scale-95 font-[family-name:var(--font-display)]">
+                Follow
+              </button>
+            )}
           </div>
         </div>
       </div>
 
       {/* Bio Section */}
-      <div className="bg-white rounded-[32px] p-8 border border-slate-200/60 shadow-sm mb-12 relative overflow-hidden group">
-        <div className="absolute top-0 right-0 p-4 opacity-5 group-hover:opacity-10 transition-opacity">
-           <Bookmark className="w-12 h-12" />
+      <div className="bg-surface-container-lowest rounded-[2rem] p-8 sm:p-10 shadow-sm mb-12 relative overflow-hidden group">
+        <div className="absolute top-0 right-0 p-6 opacity-[0.03] group-hover:opacity-10 transition-opacity">
+           <Bookmark className="w-24 h-24" />
         </div>
-        <p className="text-slate-600 font-medium text-lg leading-relaxed max-w-3xl relative z-10">
-          Computer Science student deeply interested in AI, web development, and large-scale distributed systems. Always building something new and exploring the intersection of design and code.
+        <p className="text-on-surface text-base sm:text-lg leading-relaxed max-w-3xl relative z-10 font-medium">
+          {profileData?.bio || 'Passionate about building intuitive digital experiences. Bridging the gap between creative design and robust engineering.'}
         </p>
-        <div className="flex items-center gap-8 mt-8 border-t border-slate-100 pt-6">
+        <div className="flex items-center gap-10 sm:gap-16 mt-8 pt-8 border-t border-surface-container">
            <div className="flex flex-col">
-              <span className="text-2xl font-black text-slate-900">{posts?.length || 0}</span>
-              <span className="text-xs font-black text-slate-400 uppercase tracking-widest">Posts</span>
+              <span className="text-3xl font-black text-on-surface font-[family-name:var(--font-display)]">{profileData?.postCount || posts?.length || 0}</span>
+              <span className="text-xs font-bold text-on-surface-variant uppercase tracking-widest">Posts</span>
            </div>
            <div className="flex flex-col">
-              <span className="text-2xl font-black text-slate-900">1.2k</span>
-              <span className="text-xs font-black text-slate-400 uppercase tracking-widest">Followers</span>
+              <span className="text-3xl font-black text-on-surface font-[family-name:var(--font-display)]">—</span>
+              <span className="text-xs font-bold text-on-surface-variant uppercase tracking-widest">Followers</span>
            </div>
            <div className="flex flex-col">
-              <span className="text-2xl font-black text-slate-900">450</span>
-              <span className="text-xs font-black text-slate-400 uppercase tracking-widest">Following</span>
+              <span className="text-3xl font-black text-on-surface font-[family-name:var(--font-display)]">—</span>
+              <span className="text-xs font-bold text-on-surface-variant uppercase tracking-widest">Following</span>
            </div>
         </div>
       </div>
 
-      {/* Activity Tabs (Clean & Professional) */}
-      <div className="flex justify-center gap-10 sm:gap-16 border-t border-slate-200/60 mb-8 pt-1">
-        <button className="flex items-center gap-2.5 py-4 border-t-2 border-slate-900 -mt-[2px] text-[11px] font-black tracking-[0.2em] uppercase text-slate-900 transition-all">
-          <Grid className="w-4 h-4 stroke-[3px]" /> Posts
+      {/* Activity Tabs */}
+      <div className="flex justify-center gap-8 sm:gap-16 border-b border-surface-container mb-12">
+        <button 
+          onClick={() => setActiveTab('posts')}
+          className={`flex items-center gap-2.5 pb-4 border-b-2 font-bold uppercase tracking-widest transition-all text-sm font-[family-name:var(--font-display)] ${activeTab === 'posts' ? 'border-primary-600 text-primary-700' : 'border-transparent text-on-surface-variant hover:text-on-surface'}`}
+        >
+          <Grid className="w-5 h-5 stroke-[2.5px]" /> Posts
         </button>
-        <button className="flex items-center gap-2.5 py-4 border-t-2 border-transparent -mt-[2px] text-slate-400 text-[11px] font-black tracking-[0.2em] uppercase hover:text-slate-600 transition-all">
-          <Bookmark className="w-4 h-4" /> Saved
+        <button 
+          onClick={() => setActiveTab('saved')}
+          className={`flex items-center gap-2.5 pb-4 border-b-2 font-bold uppercase tracking-widest transition-all text-sm font-[family-name:var(--font-display)] ${activeTab === 'saved' ? 'border-primary-600 text-primary-700' : 'border-transparent text-on-surface-variant hover:text-on-surface'}`}
+        >
+          <Bookmark className="w-5 h-5" /> Saved
         </button>
-        <button className="flex items-center gap-2.5 py-4 border-t-2 border-transparent -mt-[2px] text-slate-400 text-[11px] font-black tracking-[0.2em] uppercase hover:text-slate-600 transition-all">
-          <Tag className="w-4 h-4" /> Tagged
+        <button 
+          onClick={() => setActiveTab('tagged')}
+          className={`flex items-center gap-2.5 pb-4 border-b-2 font-bold uppercase tracking-widest transition-all text-sm font-[family-name:var(--font-display)] ${activeTab === 'tagged' ? 'border-primary-600 text-primary-700' : 'border-transparent text-on-surface-variant hover:text-on-surface'}`}
+        >
+          <Tag className="w-5 h-5" /> Tagged
         </button>
       </div>
 
-      {/* Posts Grid */}
-      {isPostsLoading ? (
-        <div className="flex justify-center py-32">
-          <Loader2 className="w-10 h-10 animate-spin text-slate-200" />
-        </div>
-      ) : posts && posts.length > 0 ? (
-        <div className="grid grid-cols-3 gap-1.5 sm:gap-6 lg:gap-8">
-          {posts.map((post) => (
-            <motion.div 
-              key={post.id} 
-              initial={{ opacity: 0, scale: 0.95 }}
-              animate={{ opacity: 1, scale: 1 }}
-              whileHover={{ y: -4 }}
-              className="relative aspect-square group cursor-pointer overflow-hidden rounded-xl sm:rounded-2xl bg-white shadow-sm border border-slate-100 transition-all active:scale-95"
-            >
-              {post.mediaUrl ? (
-                <img 
-                  src={post.mediaUrl} 
-                  alt="Post" 
-                  className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110" 
-                />
-              ) : (
-                <div className="w-full h-full p-6 flex flex-col items-center justify-center text-center bg-slate-50/50">
-                   <div className="w-8 h-8 rounded-full bg-slate-100 flex items-center justify-center mb-3">
-                      <MessageSquare className="w-4 h-4 text-slate-400" />
-                   </div>
-                  <p className="text-[10px] sm:text-[13px] font-bold text-slate-800 line-clamp-4 leading-relaxed">{post.content}</p>
-                </div>
-              )}
-              
-              {/* Premium Overlay on hover */}
-              <div className="absolute inset-0 bg-slate-900/40 backdrop-blur-[2px] opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-8 text-white font-black">
-                 <div className="flex items-center gap-2.5">
-                   <Heart className="w-6 h-6 fill-white" />
-                   <span className="text-lg">{post.likesCount || 0}</span>
-                 </div>
-                 <div className="flex items-center gap-2.5">
-                   <MessageCircle className="w-6 h-6 fill-white" />
-                   <span className="text-lg">{post.commentsCount || 0}</span>
-                 </div>
+      {/* Tab Content */}
+      {activeTab === 'posts' && (
+        <>
+          {isPostsLoading ? (
+            <div className="flex justify-center py-20">
+              <Loader2 className="w-10 h-10 animate-spin text-primary-500" />
+            </div>
+          ) : posts && posts.length > 0 ? (
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+              {posts.map((post) => (
+                <motion.div 
+                  key={post.id} 
+                  initial={{ opacity: 0, scale: 0.95 }}
+                  animate={{ opacity: 1, scale: 1 }}
+                  whileHover={{ y: -6 }}
+                  className="relative aspect-[4/5] group cursor-pointer overflow-hidden rounded-[1.5rem] bg-surface-container-lowest shadow-sm hover:shadow-xl hover:shadow-primary-900/10 transition-all duration-300 active:scale-95"
+                >
+                  {post.mediaUrl ? (
+                    <img 
+                      src={post.mediaUrl} 
+                      alt="Post" 
+                      className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-105" 
+                    />
+                  ) : (
+                    <div className="w-full h-full p-8 flex flex-col items-center justify-center text-center bg-surface-container-low">
+                       <div className="w-12 h-12 rounded-full bg-surface-container-highest flex items-center justify-center mb-4 text-primary-500">
+                          <MessageSquare className="w-5 h-5" />
+                       </div>
+                      <p className="text-sm font-medium text-on-surface line-clamp-5 leading-relaxed italic">
+                        "{post.content}"
+                      </p>
+                    </div>
+                  )}
+                  
+                  {/* Premium Overlay on hover */}
+                  <div className="absolute inset-x-0 bottom-0 p-6 bg-gradient-to-t from-black/80 via-black/40 to-transparent backdrop-blur-[2px] opacity-0 group-hover:opacity-100 transition-opacity duration-300 flex items-end justify-between text-white pb-6 pt-16">
+                     <div className="flex items-center gap-6">
+                       <div className="flex items-center gap-2">
+                         <Heart className="w-5 h-5 fill-white text-white" />
+                         <span className="font-bold text-sm">{post.likesCount || 0}</span>
+                       </div>
+                       <div className="flex items-center gap-2">
+                         <MessageCircle className="w-5 h-5 fill-white text-white" />
+                         <span className="font-bold text-sm">{post.commentsCount || 0}</span>
+                       </div>
+                     </div>
+                  </div>
+                </motion.div>
+              ))}
+            </div>
+          ) : (
+            <div className="text-center py-32 bg-surface-container-lowest rounded-[2.5rem] shadow-sm">
+              <div className="w-24 h-24 rounded-full bg-surface-container flex items-center justify-center mx-auto mb-6 transform hover:rotate-12 transition-transform duration-300">
+                 <span className="material-symbols-outlined text-4xl text-on-surface-variant">photo_library</span>
               </div>
-            </motion.div>
-          ))}
-        </div>
-      ) : (
-        <div className="text-center py-32 bg-white rounded-[40px] border border-dashed border-slate-200/80">
-          <div className="w-20 h-20 rounded-3xl bg-slate-50 flex items-center justify-center mx-auto mb-6 transform rotate-3">
-             <Grid className="w-8 h-8 text-slate-300" />
+              <h3 className="text-3xl font-black text-on-surface tracking-tighter mb-3 font-[family-name:var(--font-display)]">Your Gallery</h3>
+              <p className="text-on-surface-variant font-medium text-sm tracking-tight max-w-sm mx-auto leading-relaxed">
+                Curate your story. Begin sharing your university experiences, projects, and moments.
+              </p>
+              <Link 
+                to="/feed"
+                className="inline-block mt-8 px-6 py-3 bg-gradient-to-r from-primary-600 to-tertiary-500 text-white font-bold rounded-full hover:scale-105 transition-transform font-[family-name:var(--font-display)] text-sm tracking-wide"
+              >
+                 Create First Post
+              </Link>
+            </div>
+          )}
+        </>
+      )}
+
+      {activeTab === 'saved' && (
+        <div className="text-center py-32 bg-surface-container-lowest rounded-[2.5rem] shadow-sm">
+          <div className="w-24 h-24 rounded-full bg-surface-container flex items-center justify-center mx-auto mb-6">
+            <Bookmark className="w-10 h-10 text-on-surface-variant" />
           </div>
-          <h3 className="text-2xl font-black text-slate-900 tracking-tighter mb-2">No active posts yet</h3>
-          <p className="text-slate-500 font-bold text-sm tracking-tight max-w-sm mx-auto">
-            Your university journey is just beginning. Share your first moment with the campus!
+          <h3 className="text-2xl font-black text-on-surface tracking-tighter mb-3 font-[family-name:var(--font-display)]">Saved Posts</h3>
+          <p className="text-on-surface-variant font-medium text-sm max-w-sm mx-auto">
+            Posts you save will appear here. Start bookmarking content you love!
+          </p>
+        </div>
+      )}
+
+      {activeTab === 'tagged' && (
+        <div className="text-center py-32 bg-surface-container-lowest rounded-[2.5rem] shadow-sm">
+          <div className="w-24 h-24 rounded-full bg-surface-container flex items-center justify-center mx-auto mb-6">
+            <Tag className="w-10 h-10 text-on-surface-variant" />
+          </div>
+          <h3 className="text-2xl font-black text-on-surface tracking-tighter mb-3 font-[family-name:var(--font-display)]">Tagged Posts</h3>
+          <p className="text-on-surface-variant font-medium text-sm max-w-sm mx-auto">
+            When someone tags you in a post, it will show up here.
           </p>
         </div>
       )}

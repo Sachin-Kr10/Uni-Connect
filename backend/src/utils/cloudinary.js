@@ -14,7 +14,7 @@ const storage = new CloudinaryStorage({
   cloudinary: cloudinary,
   params: {
     folder: 'uni-connect-uploads', // Folder in your Cloudinary account
-    allowed_formats: ['jpg', 'jpeg', 'png', 'gif', 'webp'],
+    allowedFormats: ['jpg', 'jpeg', 'png', 'gif', 'webp'],
     transformation: [{ width: 1200, crop: 'limit' }] // basic optimization
   }
 });

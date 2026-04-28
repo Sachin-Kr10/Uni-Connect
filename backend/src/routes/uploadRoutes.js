@@ -7,7 +7,15 @@ const { verifyAccessToken } = require('../middlewares/authMiddleware');
 router.use(verifyAccessToken);
 
 // 'image' is the name of the formData field the frontend will send
-router.post('/', upload.single('image'), (req, res) => {
+router.post('/', (req, res, next) => {
+  upload.single('image')(req, res, (err) => {
+    if (err) {
+      console.error('Multer Error in upload:', err);
+      return res.status(500).json({ message: 'Multer error', error: err.message || err.toString() });
+    }
+    next();
+  });
+}, (req, res) => {
   try {
     if (!req.file) {
       return res.status(400).json({ message: 'No file uploaded or invalid format' });

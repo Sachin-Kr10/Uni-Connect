@@ -1,20 +1,25 @@
 import { useState, useRef } from 'react';
-import { Heart, MessageCircle, Send, Bookmark, MoreHorizontal, Loader2, MapPin, Plus } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
+import { useToast } from '../../context/ToastContext';
+import { getAvatar } from '../../utils/avatar';
 import { clsx } from 'clsx';
 import { twMerge } from 'tailwind-merge';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { motion, AnimatePresence } from 'framer-motion';
 import api from '../../services/api';
+import { Loader2, Heart, MessageCircle, Send, Bookmark, MoreHorizontal } from 'lucide-react';
 
 const cn = (...inputs) => twMerge(clsx(inputs));
 
 const PostCard = ({ post }) => {
   const { user } = useAuth();
+  const { showToast } = useToast();
   const queryClient = useQueryClient();
   const [isLiked, setIsLiked] = useState(post.isLikedByMe || false);
   const [likesCount, setLikesCount] = useState(post.likesCount || 0);
-  
+  const [isBookmarked, setIsBookmarked] = useState(false);
+  const [showMoreMenu, setShowMoreMenu] = useState(false);
+
   // Comments State
   const [showComments, setShowComments] = useState(false);
   const [newComment, setNewComment] = useState('');
@@ -25,6 +30,9 @@ const PostCard = ({ post }) => {
   const lastTap = useRef(0);
 
   const handleLike = async () => {
+    const previousIsLiked = isLiked;
+    const previousLikesCount = likesCount;
+
     if (isLiked) {
       setIsLiked(false);
       setLikesCount(prev => prev - 1);
@@ -32,23 +40,46 @@ const PostCard = ({ post }) => {
       setIsLiked(true);
       setLikesCount(prev => prev + 1);
     }
-    
+
     try {
       await api.post(`/posts/${post.id}/like`);
     } catch (err) {
-      setIsLiked(isLiked);
-      setLikesCount(likesCount);
+      setIsLiked(previousIsLiked);
+      setLikesCount(previousLikesCount);
     }
   };
 
-  const handleDoubleTap = (e) => {
+  const handleDoubleTap = () => {
     const now = Date.now();
     if (now - lastTap.current < 300) {
       if (!isLiked) handleLike();
       setShowHeartAnim(true);
-      setTimeout(() => setShowHeartAnim(false), 1000);
+      setTimeout(() => setShowHeartAnim(false), 800);
     }
     lastTap.current = now;
+  };
+
+  const handleShare = async () => {
+    const url = `${window.location.origin}/feed#post-${post.id}`;
+    if (navigator.share) {
+      try {
+        await navigator.share({ title: 'Check this on Uni-Connect', url });
+      } catch {}
+    } else {
+      await navigator.clipboard.writeText(url);
+      showToast('Link copied to clipboard!', 'success');
+    }
+  };
+
+  const handleBookmark = () => {
+    setIsBookmarked(!isBookmarked);
+    showToast(isBookmarked ? 'Removed from saved' : 'Post saved!', isBookmarked ? 'info' : 'success');
+  };
+
+  const handleCopyLink = () => {
+    navigator.clipboard.writeText(`${window.location.origin}/feed#post-${post.id}`);
+    showToast('Link copied!', 'success');
+    setShowMoreMenu(false);
   };
 
   // Fetch Comments Query
@@ -58,7 +89,7 @@ const PostCard = ({ post }) => {
       const res = await api.get(`/posts/${post.id}/comments`);
       return res.data;
     },
-    enabled: showComments, // Only fetch if section is open
+    enabled: showComments,
   });
 
   // Post Comment Mutation
@@ -68,7 +99,6 @@ const PostCard = ({ post }) => {
       await queryClient.cancelQueries({ queryKey: ['comments', post.id] });
       const previousComments = queryClient.getQueryData(['comments', post.id]);
 
-      // Optimistic update
       queryClient.setQueryData(['comments', post.id], (old) => [
         {
           id: Math.random(),
@@ -79,9 +109,7 @@ const PostCard = ({ post }) => {
         ...(old || []),
       ]);
       setLocalCommentsCount(prev => prev + 1);
-      setShowComments(true);
       setNewComment('');
-
       return { previousComments };
     },
     onError: (err, newTodo, context) => {
@@ -99,206 +127,197 @@ const PostCard = ({ post }) => {
     commentMutation.mutate(newComment);
   };
 
-  const getInitials = (name) => name?.charAt(0) || 'U';
   const timeStr = new Date(post.createdAt).toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
 
   return (
-    <motion.div 
-      initial={{ opacity: 0, y: 15 }}
-      animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.4, ease: [0.23, 1, 0.32, 1] }}
-      className="bg-white border border-slate-200/60 rounded-3xl mb-8 overflow-hidden w-full shadow-sm hover:shadow-md transition-shadow group/card"
-    >
+    <article className="bg-surface-container-low rounded-xl overflow-hidden shadow-sm border border-surface-container/30 relative">
       {/* Header */}
-      <div className="flex items-center justify-between p-4 px-5">
-        <div className="flex items-center gap-3.5">
-          <div className="w-10 h-10 rounded-2xl p-[2px] bg-gradient-to-tr from-sky-400 via-blue-500 to-indigo-600 shadow-sm transition-transform hover:scale-105 active:scale-95 cursor-pointer">
-            <div className="w-full h-full rounded-[14px] bg-white border border-white flex items-center justify-center overflow-hidden">
-              <img 
-                src={`https://api.dicebear.com/7.x/avataaars/svg?seed=${post.User?.name}`} 
-                alt="avatar" 
-                className="w-full h-full object-cover"
-              />
-            </div>
+      <div className="p-6 flex items-center justify-between">
+        <div className="flex items-center gap-4">
+          <div className="w-10 h-10 rounded-full overflow-hidden border-2 border-surface shrink-0 bg-surface-container-high">
+            <img
+              src={post.User?.profileImage || getAvatar(null)}
+              alt="Avatar"
+              className="w-full h-full object-cover"
+            />
           </div>
-          <div className="flex flex-col pt-0.5">
-            <div className="flex items-center gap-1.5">
-              <h4 className="font-black text-slate-900 text-[14px] leading-none tracking-tight hover:text-primary-600 transition-colors cursor-pointer capitalize">
-                {post.User?.name || 'unknown_user'}
-              </h4>
-              {post.Group && <span className="text-slate-300 font-black text-xs leading-none">·</span>}
-              {post.Group && (
-                <span className="text-[12px] text-primary-600 font-bold hover:underline cursor-pointer tracking-tight">{post.Group.name}</span>
-              )}
-            </div>
-            <div className="flex items-center gap-1.5 mt-1">
-               <span className="text-[10px] text-slate-400 font-bold uppercase tracking-widest">{timeStr}</span>
-               {post.location && (
-                  <>
-                    <span className="text-slate-300 font-black text-[8px]">·</span>
-                    <div className="flex items-center gap-0.5 text-slate-400 text-[10px] font-bold">
-                      <MapPin className="w-2.5 h-2.5" />
-                      <span>{post.location}</span>
-                    </div>
-                  </>
-               )}
-            </div>
+          <div>
+            <h3 className="font-[family-name:var(--font-display)] font-bold text-sm leading-none text-on-surface">
+              {post.User?.name?.toLowerCase().replace(/\s/g, '_')}
+            </h3>
+            <span className="text-xs text-on-surface-variant font-medium font-[family-name:var(--font-body)]">
+              {post.location || (post.Group ? post.Group.name : 'Global Feed')}
+            </span>
           </div>
         </div>
-        <button className="text-slate-400 hover:text-slate-900 p-2 rounded-xl hover:bg-slate-50 transition-all active:scale-90">
-          <MoreHorizontal className="w-5 h-5" />
-        </button>
+        <div className="relative">
+          <button 
+            onClick={() => setShowMoreMenu(!showMoreMenu)}
+            className="p-2 hover:bg-surface-container-high rounded-full transition-colors text-on-surface-variant"
+          >
+            <MoreHorizontal className="w-5 h-5" />
+          </button>
+          {/* More Menu Dropdown */}
+          <AnimatePresence>
+            {showMoreMenu && (
+              <>
+                <div className="fixed inset-0 z-30" onClick={() => setShowMoreMenu(false)} />
+                <motion.div
+                  initial={{ opacity: 0, scale: 0.9, y: -5 }}
+                  animate={{ opacity: 1, scale: 1, y: 0 }}
+                  exit={{ opacity: 0, scale: 0.9 }}
+                  className="absolute right-0 top-full mt-1 bg-surface-lowest rounded-xl shadow-xl border border-surface-container/50 py-2 z-40 w-44"
+                >
+                  <button onClick={handleCopyLink} className="w-full text-left px-4 py-2.5 text-sm font-semibold text-on-surface hover:bg-surface-container transition-colors">
+                    Copy Link
+                  </button>
+                  <button onClick={() => { showToast('Post reported', 'info'); setShowMoreMenu(false); }} className="w-full text-left px-4 py-2.5 text-sm font-semibold text-secondary-600 hover:bg-secondary-50 transition-colors">
+                    Report
+                  </button>
+                </motion.div>
+              </>
+            )}
+          </AnimatePresence>
+        </div>
       </div>
 
-      {/* Media / Content Area */}
+      {/* Content Meta / Image */}
       <div 
-        className="w-full bg-slate-50 aspect-square sm:aspect-[4/5] flex items-center justify-center border-y border-slate-100 relative group overflow-hidden cursor-pointer"
+        className="relative w-full overflow-hidden cursor-pointer"
         onClick={handleDoubleTap}
       >
         {post.mediaUrl ? (
-          <img src={post.mediaUrl} alt="Post content" className="w-full h-full object-cover select-none" />
+          <div className="flex items-center justify-center w-full max-h-[550px] overflow-hidden bg-black/90">
+            <img 
+              src={post.mediaUrl} 
+              alt="Post Content" 
+              className="max-w-full max-h-[550px] object-contain select-none" 
+            />
+            {/* Double Tap Heart Animation */}
+            <AnimatePresence>
+              {showHeartAnim && (
+                <motion.div
+                  initial={{ scale: 0, opacity: 0 }}
+                  animate={{ scale: [0, 1.2, 1], opacity: [0, 1, 0] }}
+                  exit={{ scale: 0, opacity: 0 }}
+                  className="absolute inset-0 flex items-center justify-center pointer-events-none z-20"
+                >
+                  <Heart className="text-white w-24 h-24 drop-shadow-2xl fill-white" />
+                </motion.div>
+              )}
+            </AnimatePresence>
+          </div>
         ) : (
-          <div className="text-center p-8 max-w-sm select-none">
-            <h2 className="text-2xl font-bold text-slate-800 whitespace-pre-wrap leading-tight">{post.content}</h2>
+          <div className="p-10 bg-gradient-to-br from-surface-container-high to-surface-container-low flex items-center justify-center min-h-[300px]">
+             <p className="text-xl md:text-2xl font-black text-on-surface text-center leading-tight font-[family-name:var(--font-display)] tracking-tighter">
+               {post.content}
+             </p>
           </div>
         )}
-
-        {/* Double Tap Heart Animation */}
-        <AnimatePresence>
-          {showHeartAnim && (
-            <motion.div
-              initial={{ scale: 0, opacity: 0 }}
-              animate={{ scale: [0, 1.2, 1], opacity: [0, 1, 0] }}
-              exit={{ scale: 0, opacity: 0 }}
-              transition={{ duration: 0.8, times: [0, 0.2, 1] }}
-              className="absolute inset-0 flex items-center justify-center pointer-events-none z-20"
-            >
-              <Heart className="w-24 h-24 fill-white text-white drop-shadow-2xl" />
-            </motion.div>
-          )}
-        </AnimatePresence>
       </div>
 
-      {/* Action Bar */}
-      <div className="p-4 px-5">
-        <div className="flex items-center justify-between mb-4">
-          <div className="flex items-center gap-5">
-            <motion.button 
-              onClick={handleLike} 
-              whileTap={{ scale: 0.8 }}
-              className="group flex items-center gap-2"
+      {/* Actions & Interaction */}
+      <div className="p-6 space-y-4">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-6">
+            <button 
+              onClick={handleLike}
+              className={cn(
+                "flex items-center gap-2 group transition-transform active:scale-90",
+                isLiked ? "text-secondary-500" : "text-on-surface"
+              )}
             >
-              <Heart className={cn("w-6 h-6 transition-all duration-300", isLiked ? "fill-red-500 text-red-500 scale-110" : "text-slate-900 group-hover:text-red-500")} />
-              {likesCount > 0 && <span className={cn("text-xs font-black tracking-tight transition-colors", isLiked ? "text-red-500" : "text-slate-900")}>{likesCount}</span>}
-            </motion.button>
-            <motion.button 
-              whileTap={{ scale: 0.8 }}
+              <Heart className={cn("transition-all group-hover:scale-110 w-5 h-5", isLiked && "fill-secondary-500 text-secondary-500")} />
+              <span className="text-sm font-bold">{likesCount}</span>
+            </button>
+
+            <button 
               onClick={() => setShowComments(!showComments)}
-              className="flex items-center gap-2 group text-slate-900 hover:text-primary-600 transition-colors"
+              className="flex items-center gap-2 text-on-surface group transition-transform active:scale-90"
             >
-              <MessageCircle className="w-6 h-6 group-hover:scale-110 transition-transform" />
-              {localCommentsCount > 0 && <span className="text-xs font-black tracking-tight">{localCommentsCount}</span>}
-            </motion.button>
-            <motion.button whileTap={{ scale: 0.8 }} className="group text-slate-900 hover:text-slate-600 transition-colors">
-              <Send className="w-6 h-6 group-hover:translate-x-1 group-hover:-translate-y-1 transition-transform" />
-            </motion.button>
+              <MessageCircle className="w-5 h-5 group-hover:scale-110 transition-all" />
+              <span className="text-sm font-bold">{localCommentsCount}</span>
+            </button>
+
+            <button 
+              onClick={handleShare}
+              className="flex items-center gap-2 text-on-surface hover:scale-110 transition-transform"
+            >
+              <Send className="w-5 h-5" />
+            </button>
           </div>
-          <motion.button whileTap={{ scale: 0.8 }} className="text-slate-300 hover:text-slate-900 transition-colors">
-            <Bookmark className="w-6 h-6" />
-          </motion.button>
+          <button 
+            onClick={handleBookmark}
+            className="text-on-surface hover:scale-110 transition-transform"
+          >
+            <Bookmark className={cn("w-5 h-5", isBookmarked && "fill-on-surface")} />
+          </button>
         </div>
 
-        {/* Caption Area */}
-        <div className="space-y-1.5">
-          {(post.mediaUrl || post.content) && (
-            <div className="text-[14px] text-slate-800 leading-snug">
-              <span className="font-black mr-2 text-slate-900 cursor-pointer hover:text-primary-600 transition-colors capitalize">
-                {post.User?.name}
-              </span>
-              <span className="font-medium whitespace-pre-wrap">
-                {post.content}
-              </span>
-            </div>
+        <div className="space-y-1">
+          {post.mediaUrl && (
+            <p className="text-sm leading-relaxed font-[family-name:var(--font-body)] text-on-surface">
+              <span className="font-bold mr-2">{post.User?.name?.toLowerCase().replace(/\s/g, '_')}</span>
+              {post.content}
+            </p>
           )}
+          <span className="text-[10px] uppercase font-bold tracking-widest text-on-surface-variant block mt-2 opacity-60">
+            {timeStr}
+          </span>
         </div>
 
-        <div className="text-[10px] text-slate-400 font-medium uppercase mb-2">
-          {timeStr}
-        </div>
-
-        {/* Interaction Bar (optimized) */}
-        <div className="mt-4 pt-4 border-t border-slate-50 flex flex-col gap-3">
-           {/* Add Comment Input */}
-          <form onSubmit={handleCommentSubmit} className="flex items-center gap-3 bg-slate-50 rounded-2xl p-1.5 pl-4 group focus-within:bg-white focus-within:ring-2 focus-within:ring-primary-50 transition-all">
-            <input 
-              type="text" 
-              placeholder="Add a comment..." 
-              className="flex-1 bg-transparent border-none focus:ring-0 text-sm font-bold text-slate-800 placeholder:text-slate-400"
-              value={newComment}
-              onChange={(e) => setNewComment(e.target.value)}
-            />
-            <button 
-              type="submit" 
-              disabled={!newComment.trim() || commentMutation.isPending}
-              className="bg-primary-500 hover:bg-primary-600 text-white font-black px-4 py-1.5 rounded-xl text-xs transition-all active:scale-95 disabled:opacity-30 flex items-center gap-1.5"
-            >
-              {commentMutation.isPending ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Plus className="w-3.5 h-3.5 stroke-[4.5px]" />}
-              <span>Post</span>
-            </button>
-          </form>
-
-          {/* Comments Preview Toggle */}
-          {localCommentsCount > 0 && (
-            <button 
-              onClick={() => setShowComments(!showComments)}
-              className="text-[12px] font-black text-slate-400 hover:text-primary-600 transition-colors uppercase tracking-widest pl-1"
-            >
-              {showComments ? 'Hide comments' : `Show all ${localCommentsCount} comments`}
-            </button>
-          )}
-        </div>
-
-        {/* Interactive Comments Drawer */}
+        {/* Comments Section */}
         <AnimatePresence>
           {showComments && (
-            <motion.div 
+            <motion.div
               initial={{ height: 0, opacity: 0 }}
               animate={{ height: 'auto', opacity: 1 }}
               exit={{ height: 0, opacity: 0 }}
-              className="overflow-hidden"
+              className="overflow-hidden pt-4"
             >
-              <div className="max-h-60 overflow-y-auto pr-2 scrollbar-hide space-y-3 mt-4">
+              <div className="border-t border-surface-container/50 pt-4 space-y-4">
                 {isCommentsLoading ? (
-                  <div className="flex justify-center py-4"><Loader2 className="w-5 h-5 animate-spin text-primary-200" /></div>
+                  <div className="flex justify-center py-2"><Loader2 className="w-4 h-4 animate-spin text-primary-500" /></div>
                 ) : (
-                  comments?.map((comment) => (
-                    <motion.div 
-                      key={comment.id} 
-                      initial={{ x: -10, opacity: 0 }}
-                      animate={{ x: 0, opacity: 1 }}
-                      className="text-[13px] flex gap-3 group/comment"
-                    >
-                      <div className="w-6 h-6 rounded-lg bg-slate-100 flex-shrink-0 flex items-center justify-center font-bold text-[10px] text-slate-500">
-                        {comment.User?.name?.charAt(0)}
-                      </div>
-                      <div className="flex flex-col gap-0.5">
-                        <span className="font-bold text-slate-900 leading-tight">
+                  <div className="space-y-3 max-h-48 overflow-y-auto pr-2 custom-scrollbar">
+                    {comments?.map((comment) => (
+                      <div key={comment.id} className="flex gap-3">
+                        <span className="text-xs font-bold text-on-surface shrink-0">
                           {comment.User?.name?.toLowerCase().replace(/\s/g, '_')}
                         </span>
-                        <span className="text-slate-600 leading-relaxed font-medium">{comment.content}</span>
+                        <span className="text-xs text-on-surface-variant font-medium">
+                          {comment.content}
+                        </span>
                       </div>
-                    </motion.div>
-                  ))
+                    ))}
+                    {(!comments || comments.length === 0) && (
+                      <p className="text-[10px] text-center text-on-surface-variant font-bold uppercase tracking-widest py-2">No discussion yet</p>
+                    )}
+                  </div>
                 )}
-                {comments?.length === 0 && !isCommentsLoading && (
-                  <div className="text-xs text-slate-400 font-bold uppercase tracking-widest pl-1">No comments yet</div>
-                )}
+
+                <form onSubmit={handleCommentSubmit} className="flex items-center gap-2 mt-2">
+                  <input
+                    type="text"
+                    placeholder="Add a comment..."
+                    className="flex-1 bg-surface-container-lowest border-none focus:ring-0 text-xs font-medium p-2 rounded-lg"
+                    value={newComment}
+                    onChange={(e) => setNewComment(e.target.value)}
+                  />
+                  <button
+                    type="submit"
+                    disabled={!newComment.trim() || commentMutation.isPending}
+                    className="text-primary-600 font-bold text-xs uppercase disabled:opacity-30"
+                  >
+                    Post
+                  </button>
+                </form>
               </div>
             </motion.div>
           )}
         </AnimatePresence>
       </div>
-    </motion.div>
+    </article>
   );
 };
 

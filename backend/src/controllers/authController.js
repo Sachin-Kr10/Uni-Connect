@@ -55,12 +55,11 @@ const register = async (req, res) => {
     await OTP.destroy({ where: { email } });
 
     // 5. Generate Tokens
-    const accessToken = generateAccessToken(user.id, user.role);
+    const accessToken = generateAccessToken(user.id, user.role, user.name, user.email, user.profileImage);
     const refreshToken = generateRefreshToken(user.id);
 
     // 6. Save Refresh Token in DB
-    user.refreshToken = refreshToken;
-    await user.save();
+    await User.update({ refreshToken }, { where: { id: user.id } });
 
     // 7. Send Refresh Token in HTTP-only Cookie
     res.cookie('jwt', refreshToken, {
@@ -77,7 +76,9 @@ const register = async (req, res) => {
         id: user.id,
         name: user.name,
         email: user.email,
-        role: user.role
+        role: user.role,
+        profileImage: user.profileImage || null,
+        bio: user.bio || null
       }
     });
 
@@ -105,12 +106,11 @@ const login = async (req, res) => {
     }
 
     // 3. Generate Tokens
-    const accessToken = generateAccessToken(user.id, user.role);
+    const accessToken = generateAccessToken(user.id, user.role, user.name, user.email, user.profileImage);
     const refreshToken = generateRefreshToken(user.id);
 
-    // 4. Save Refresh Token in DB
-    user.refreshToken = refreshToken;
-    await user.save();
+    // 4. Save Refresh Token in DB (targeted update — faster than full save)
+    await User.update({ refreshToken }, { where: { id: user.id } });
 
     // 5. Send Refresh Token in HTTP-only Cookie
     res.cookie('jwt', refreshToken, {
@@ -127,7 +127,9 @@ const login = async (req, res) => {
         id: user.id,
         name: user.name,
         email: user.email,
-        role: user.role
+        role: user.role,
+        profileImage: user.profileImage || null,
+        bio: user.bio || null
       }
     });
 
@@ -166,7 +168,7 @@ const refreshTokens = async (req, res) => {
         }
 
         // 4. Issue new Access Token
-        const accessToken = generateAccessToken(user.id, user.role);
+        const accessToken = generateAccessToken(user.id, user.role, user.name, user.email, user.profileImage);
         res.json({ accessToken });
       }
     );

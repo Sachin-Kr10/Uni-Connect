@@ -1,10 +1,12 @@
 import { useState, useEffect, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { Send, Loader2, Phone, Video, Info, ChevronLeft, MoreVertical, Plus } from 'lucide-react';
+import { Send, Loader2, Phone, Video, MoreVertical, Plus, ChevronLeft, Image as ImageIcon, Smile } from 'lucide-react';
 import api from '../../services/api';
 import { useAuth } from '../../context/AuthContext';
 import { useSocket } from '../../context/SocketContext';
+import { useToast } from '../../context/ToastContext';
+import { getAvatar } from '../../utils/avatar';
 import { clsx } from 'clsx';
 import { twMerge } from 'tailwind-merge';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -16,13 +18,14 @@ const ChatWindow = () => {
   const navigate = useNavigate();
   const { user } = useAuth();
   const { socket, onlineUsers } = useSocket();
+  const { showToast } = useToast();
   const queryClient = useQueryClient();
   const [newMessage, setNewMessage] = useState('');
   const [typingUsers, setTypingUsers] = useState(new Set());
   const messagesEndRef = useRef(null);
   const typingTimeoutRef = useRef(null);
+  const imageInputRef = useRef(null);
 
-  // Fetch Messages and Meta (like other participant details)
   const { data: messages = [], isLoading } = useQuery({
     queryKey: ['messages', conversationId],
     queryFn: async () => {
@@ -32,12 +35,9 @@ const ChatWindow = () => {
     enabled: !!conversationId
   });
 
-  // Extract other user from the first message (Hack since we didn't add a specific /chat/:id endpoint)
-  // Ideally, api.get(`/chat/${conversationId}`) would return the conversation meta.
   const otherUser = messages.find(m => m.senderId !== user.id)?.User || { name: 'Chat Member' };
   const isOnline = onlineUsers?.includes(otherUser.id);
 
-  // Socket Listener for Real-time
   useEffect(() => {
     if (!socket || !conversationId) return;
 
@@ -78,7 +78,7 @@ const ChatWindow = () => {
 
   const sendMessageMutation = useMutation({
     mutationFn: (content) => api.post(`/chat/${conversationId}/messages`, { content }),
-    onSuccess: (data) => {
+    onSuccess: () => {
       setNewMessage('');
       socket?.emit('typing', { conversationId, isTyping: false });
     }
@@ -92,95 +92,91 @@ const ChatWindow = () => {
 
   const handleTyping = (e) => {
     setNewMessage(e.target.value);
-    
-    // Emit typing true
     socket?.emit('typing', { conversationId, isTyping: true });
-    
-    // Debounce to typing false
     if (typingTimeoutRef.current) clearTimeout(typingTimeoutRef.current);
     typingTimeoutRef.current = setTimeout(() => {
       socket?.emit('typing', { conversationId, isTyping: false });
     }, 2000);
   };
 
+  const handleImageUpload = async (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+    try {
+      const fd = new FormData();
+      fd.append('image', file);
+      const res = await api.post('/upload', fd, { headers: { 'Content-Type': 'multipart/form-data' } });
+      sendMessageMutation.mutate(`📷 ${res.data.url}`);
+      showToast('Image sent!', 'success');
+    } catch {
+      showToast('Failed to send image', 'error');
+    }
+  };
+
   if (isLoading) {
     return (
-      <div className="flex-1 flex items-center justify-center bg-slate-50/50">
+      <div className="flex-1 flex items-center justify-center bg-surface">
         <Loader2 className="w-8 h-8 text-primary-500 animate-spin" />
       </div>
     );
   }
 
   return (
-    <div className="flex flex-col h-full relative bg-[#F4F7FB] overflow-hidden">
-      {/* High-End Header */}
-      <div className="h-20 border-b border-white/40 bg-white/60 backdrop-blur-2xl flex items-center justify-between px-6 z-10 shrink-0 shadow-sm">
+    <div className="flex flex-1 flex-col bg-surface-container-lowest h-full relative">
+      {/* Header */}
+      <header className="h-20 flex items-center justify-between px-4 sm:px-8 bg-surface-container-lowest border-b-0 shadow-sm z-10 shrink-0">
         <div className="flex items-center gap-4">
           <motion.button 
             whileHover={{ x: -2 }}
             whileTap={{ scale: 0.95 }}
             onClick={() => navigate('/chat')}
-            className="sm:hidden p-2.5 -ml-2 text-slate-500 hover:bg-white/80 rounded-2xl transition-all shadow-sm active:scale-90"
+            className="p-2 text-on-surface-variant hover:bg-surface-container-low rounded-xl transition-all md:hidden"
           >
-            <ChevronLeft className="w-6 h-6 stroke-[2.5px]" />
+            <ChevronLeft className="w-5 h-5" />
           </motion.button>
           
           <div className="relative group cursor-pointer">
-            <div className="w-12 h-12 rounded-[22px] bg-gradient-to-br from-slate-100 to-slate-200 border-2 border-white flex items-center justify-center text-slate-800 font-black text-xl shadow-lg shrink-0 overflow-hidden transition-transform group-hover:scale-105">
-              <img 
-                src={`https://api.dicebear.com/7.x/avataaars/svg?seed=${otherUser.name}`} 
-                alt={otherUser.name}
-                className="w-full h-full object-cover"
-              />
-            </div>
+            <img 
+              src={otherUser.profileImage || getAvatar(null)} 
+              alt={otherUser.name}
+              className="w-10 h-10 rounded-full object-cover bg-surface-container"
+            />
             {isOnline && (
-              <div className="absolute -bottom-0.5 -right-0.5 w-4 h-4 bg-emerald-500 rounded-full border-[3px] border-white shadow-md z-10" />
+              <div className="absolute -bottom-0.5 -right-0.5 w-3 h-3 bg-green-500 border-2 border-surface-container-lowest rounded-full z-10" />
             )}
           </div>
           
-          <div className="flex flex-col pt-0.5">
-            <h3 className="font-black text-slate-900 leading-none text-base tracking-tight">{otherUser.name}</h3>
-            <div className="flex items-center gap-1.5 mt-1">
-              {typingUsers.size > 0 ? (
-                <span className="text-[11px] font-black text-primary-500 uppercase tracking-widest animate-pulse">typing...</span>
-              ) : (
-                <>
-                  <span className={cn("w-1.5 h-1.5 rounded-full", isOnline ? "bg-emerald-500" : "bg-slate-300")} />
-                  <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">
-                    {isOnline ? 'Active now' : 'Offline'}
-                  </span>
-                </>
-              )}
-            </div>
+          <div className="flex flex-col">
+            <h2 className="font-[family-name:var(--font-display)] font-bold text-sm text-on-surface">{otherUser.name}</h2>
+            {typingUsers.size > 0 ? (
+              <p className="text-[11px] text-primary-600 font-medium tracking-wide uppercase animate-pulse">Typing...</p>
+            ) : (
+              <p className="text-[11px] text-primary-600 font-medium tracking-wide uppercase">
+                {isOnline ? 'Active Now' : 'Offline'}
+              </p>
+            )}
           </div>
         </div>
         
-        <div className="flex items-center gap-2 text-slate-400">
-          <button className="p-3 hover:bg-white/80 hover:text-primary-600 rounded-2xl transition-all active:scale-90 hidden sm:block">
-            <Phone className="w-5 h-5 stroke-[2.5px]"/>
+        <div className="flex items-center gap-2">
+          <button onClick={() => showToast('Voice calls coming soon!', 'info')} className="p-2 text-on-surface-variant hover:bg-surface-container-low rounded-xl transition-all">
+            <Phone className="w-5 h-5" />
           </button>
-          <button className="p-3 hover:bg-white/80 hover:text-primary-600 rounded-2xl transition-all active:scale-90 hidden sm:block">
-            <Video className="w-5 h-5 stroke-[2.5px]"/>
+          <button onClick={() => showToast('Video calls coming soon!', 'info')} className="p-2 text-on-surface-variant hover:bg-surface-container-low rounded-xl transition-all">
+            <Video className="w-5 h-5" />
           </button>
-          <button className="p-3 hover:bg-white/80 rounded-2xl text-slate-600 transition-all active:scale-90">
-            <MoreVertical className="w-5 h-5 stroke-[2.5px]"/>
+          <button onClick={() => showToast('Chat settings coming soon!', 'info')} className="p-2 text-on-surface-variant hover:bg-surface-container-low rounded-xl transition-all">
+            <MoreVertical className="w-5 h-5" />
           </button>
         </div>
-      </div>
+      </header>
 
-      {/* Telegram-style Messages Area */}
-      <div className="flex-1 overflow-y-auto px-4 py-8 sm:px-10 flex flex-col gap-3 relative scroll-smooth overflow-x-hidden">
-        {/* Subtle Textured Background Overlay */}
-        <div className="absolute inset-0 bg-[url('https://www.transparenttextures.com/patterns/cubes.png')] opacity-[0.03] pointer-events-none" />
-        
-        <div className="text-center mb-10 relative z-10">
-          <motion.div 
-            initial={{ scale: 0.9, opacity: 0 }}
-            animate={{ scale: 1, opacity: 1 }}
-            className="inline-block px-5 py-1.5 bg-white/50 backdrop-blur-md text-slate-400 text-[10px] font-black uppercase tracking-[0.2em] rounded-full shadow-sm border border-white/40"
-          >
+      {/* Message History */}
+      <div className="flex-1 overflow-y-auto px-6 py-8 sm:px-8 space-y-6 bg-surface custom-scrollbar">
+        <div className="flex justify-center mb-6">
+          <span className="px-3 py-1 bg-surface-container-highest rounded-full text-[10px] font-bold text-on-surface-variant uppercase tracking-widest font-[family-name:var(--font-body)]">
             Secured with Uni-Connect
-          </motion.div>
+          </span>
         </div>
         
         <AnimatePresence initial={false}>
@@ -192,44 +188,41 @@ const ChatWindow = () => {
             return (
               <motion.div 
                 key={msg.id}
-                initial={{ opacity: 0, x: isMine ? 20 : -20 }}
-                animate={{ opacity: 1, x: 0 }}
-                transition={{ type: "spring", damping: 25, stiffness: 200 }}
+                initial={{ opacity: 0, scale: 0.95 }}
+                animate={{ opacity: 1, scale: 1 }}
+                transition={{ type: "spring", damping: 25, stiffness: 300 }}
                 className={cn(
-                  "flex w-full relative z-10",
-                  isMine ? "justify-end" : "justify-start",
-                  isLastInGroup ? "mb-4" : "mb-0.5"
+                  "flex items-end gap-3 max-w-[80%]",
+                  isMine ? "ml-auto flex-row-reverse" : ""
                 )}
               >
                 {!isMine && isLastInGroup && (
-                  <div className="absolute -left-8 bottom-0 hidden sm:block">
-                     <div className="w-6 h-6 rounded-lg overflow-hidden border border-white bg-slate-100 shadow-sm">
-                       <img src={`https://api.dicebear.com/7.x/avataaars/svg?seed=${otherUser.name}`} alt="avatar" className="w-full h-full object-cover" />
-                     </div>
-                  </div>
+                  <img 
+                    src={otherUser.profileImage || getAvatar(null)} 
+                    alt="avatar" 
+                    className="w-8 h-8 rounded-full object-cover shrink-0" 
+                  />
+                )}
+                {!isMine && !isLastInGroup && (
+                  <div className="w-8 h-8 shrink-0 relative" />
                 )}
 
                 <div className={cn(
-                  "relative max-w-[85%] sm:max-w-[65%] px-4 py-3 shadow-sm group transition-all duration-300",
+                  "p-4 rounded-2xl shadow-sm",
                   isMine 
-                    ? "bg-slate-900 border border-slate-800 text-white shadow-slate-900/10" 
-                    : "bg-white/80 backdrop-blur-md border border-white text-slate-800 shadow-slate-200/50",
-                  // Dynamic Radii
-                  "rounded-[22px]",
-                  isMine && isLastInGroup && "rounded-br-none",
-                  !isMine && isLastInGroup && "rounded-bl-none shadow-indigo-100/50"
+                    ? "bg-primary-600 text-white shadow-lg shadow-primary-500/20" 
+                    : "bg-surface-container-highest text-on-surface",
+                  isLastInGroup && isMine ? "rounded-br-none" : "",
+                  isLastInGroup && !isMine ? "rounded-bl-none" : ""
                 )}>
-                  <p className="leading-relaxed text-[15px] font-medium whitespace-pre-wrap break-words">{msg.content}</p>
+                  <p className="text-sm leading-relaxed whitespace-pre-wrap word-break-words font-[family-name:var(--font-body)]">{msg.content}</p>
                   
-                  <div className={cn(
-                    "flex items-center gap-1.5 justify-end mt-1 opacity-60",
-                    isMine ? "text-slate-400" : "text-slate-400"
+                  <span className={cn(
+                    "block text-[10px] mt-2 font-[family-name:var(--font-body)] font-bold tracking-wider",
+                    isMine ? "text-white/70 text-right" : "text-on-surface-variant"
                   )}>
-                    <span className="text-[10px] font-black tracking-tighter uppercase leading-none">
-                      {new Date(msg.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                    </span>
-                    {isMine && <div className="w-1 h-1 bg-primary-400 rounded-full" />}
-                  </div>
+                    {new Date(msg.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                  </span>
                 </div>
               </motion.div>
             );
@@ -240,66 +233,61 @@ const ChatWindow = () => {
           <motion.div 
             initial={{ opacity: 0, y: 5 }} 
             animate={{ opacity: 1, y: 0 }} 
-            className="flex justify-start relative z-10"
+            className="flex items-end justify-start gap-3"
           >
-            <div className="bg-white/60 backdrop-blur-md border border-white px-5 py-4 rounded-[22px] rounded-bl-none shadow-sm flex items-center gap-2">
-              <div className="flex gap-1">
-                <span className="w-1.5 h-1.5 bg-primary-400 rounded-full animate-[bounce_1s_infinite_-0.3s]"></span>
-                <span className="w-1.5 h-1.5 bg-primary-400 rounded-full animate-[bounce_1s_infinite_-0.15s]"></span>
-                <span className="w-1.5 h-1.5 bg-primary-400 rounded-full animate-[bounce_1s_infinite]"></span>
-              </div>
-              <span className="text-[11px] font-black text-slate-400 uppercase tracking-widest pl-1">Someone's typing</span>
+            <div className="w-8 h-8 rounded-full bg-surface-container shrink-0" />
+            <div className="bg-surface-container-highest px-4 py-3.5 rounded-2xl rounded-bl-none shadow-sm flex items-center gap-1.5">
+              <span className="w-1.5 h-1.5 bg-primary-500 rounded-full animate-[bounce_1s_infinite_-0.3s]"></span>
+              <span className="w-1.5 h-1.5 bg-primary-500 rounded-full animate-[bounce_1s_infinite_-0.15s]"></span>
+              <span className="w-1.5 h-1.5 bg-primary-500 rounded-full animate-[bounce_1s_infinite]"></span>
             </div>
           </motion.div>
         )}
         <div ref={messagesEndRef} className="h-4" />
       </div>
 
-      {/* High-End Floating Input Bar */}
-      <div className="p-6 pt-2 bg-gradient-to-t from-[#F4F7FB] via-[#F4F7FB] to-transparent shrink-0">
-        <form onSubmit={handleSend} className="flex items-center gap-3 max-w-5xl mx-auto relative group">
-          <div className="flex-1 relative flex items-center">
-            <button 
-              type="button"
-              className="absolute left-3 p-2 text-slate-400 hover:text-slate-600 hover:bg-slate-200/50 rounded-2xl transition-all active:scale-90"
-            >
+      {/* Chat Input */}
+      <footer className="p-6 bg-surface-container-lowest shrink-0 z-10">
+        <form onSubmit={handleSend} className="max-w-4xl mx-auto flex items-end gap-3 bg-surface-container-low p-2 rounded-[1.5rem] border-0 shadow-sm relative focus-within:ring-2 focus-within:ring-primary-200 transition-all">
+          <div className="flex items-center gap-1 pb-1 px-1">
+            <button type="button" onClick={() => imageInputRef.current?.click()} className="p-2 text-on-surface-variant hover:text-primary-600 hover:bg-surface-container-high rounded-xl transition-all">
               <Plus className="w-5 h-5 stroke-[2.5px]" />
             </button>
-            <textarea 
-              rows={1}
-              value={newMessage}
-              onChange={handleTyping}
-              onKeyDown={(e) => {
-                if (e.key === 'Enter' && !e.shiftKey) {
-                  e.preventDefault();
-                  handleSend(e);
-                }
-              }}
-              placeholder="Write something..."
-              className="w-full bg-white border-2 border-white focus:border-slate-200 pl-14 pr-16 py-4 rounded-[28px] outline-none transition-all text-sm font-bold placeholder:text-slate-400 shadow-xl shadow-slate-200/50 resize-none overflow-hidden"
-              style={{ minHeight: '56px', maxHeight: '150px' }}
-            />
-            
-            <AnimatePresence>
-              {newMessage.trim() && (
-                <motion.button 
-                  initial={{ scale: 0, rotate: -45 }}
-                  animate={{ scale: 1, rotate: 0 }}
-                  exit={{ scale: 0, rotate: 45 }}
-                  type="submit"
-                  disabled={sendMessageMutation.isPending}
-                  className="absolute right-2.5 w-11 h-11 bg-slate-900 hover:bg-black text-white rounded-[22px] flex items-center justify-center transition-all disabled:opacity-30 shadow-[0_8px_16px_rgba(0,0,0,0.2)] shrink-0 active:scale-90"
-                >
-                  {sendMessageMutation.isPending ? <Loader2 className="w-5 h-5 animate-spin" /> : <Send className="w-5 h-5 ml-0.5 stroke-[2.5px]" />}
-                </motion.button>
-              )}
-            </AnimatePresence>
+            <button type="button" onClick={() => imageInputRef.current?.click()} className="p-2 text-on-surface-variant hover:text-primary-600 hover:bg-surface-container-high rounded-xl transition-all hidden sm:block">
+              <ImageIcon className="w-5 h-5" />
+            </button>
+            <input ref={imageInputRef} type="file" accept="image/*" className="hidden" onChange={handleImageUpload} />
+          </div>
+          
+          <textarea 
+            rows={1}
+            value={newMessage}
+            onChange={handleTyping}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter' && !e.shiftKey) {
+                e.preventDefault();
+                handleSend(e);
+              }
+            }}
+            placeholder="Type a message..."
+            className="flex-1 bg-transparent border-0 focus:ring-0 text-sm font-[family-name:var(--font-body)] py-3 px-1 placeholder:text-on-surface-variant/50 outline-none resize-none"
+            style={{ maxHeight: '120px' }}
+          />
+
+          <div className="flex items-center gap-1 pb-1">
+            <button type="button" onClick={() => showToast('Emoji picker coming soon!', 'info')} className="p-2 text-on-surface-variant hover:text-primary-600 hover:bg-surface-container-high rounded-xl transition-all mr-1 hidden sm:block">
+              <Smile className="w-5 h-5" />
+            </button>
+            <button 
+              type="submit"
+              disabled={sendMessageMutation.isPending || !newMessage.trim()}
+              className="w-10 h-10 bg-primary-600 hover:bg-primary-700 text-white rounded-[14px] flex items-center justify-center transition-all disabled:opacity-50 shadow-md shadow-primary-600/30 shrink-0 active:scale-90"
+            >
+              {sendMessageMutation.isPending ? <Loader2 className="w-5 h-5 animate-spin" /> : <Send className="w-5 h-5 ml-0.5 stroke-[2px]" />}
+            </button>
           </div>
         </form>
-        <p className="text-center text-[10px] font-black text-slate-300 uppercase tracking-widest mt-4">
-          Press Shift + Enter for new line
-        </p>
-      </div>
+      </footer>
     </div>
   );
 };
