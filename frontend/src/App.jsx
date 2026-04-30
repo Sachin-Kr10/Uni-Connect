@@ -7,8 +7,12 @@ import AppLayout from './components/layout/AppLayout';
 import Feed from './features/feed/Feed';
 import ChatLayout from './features/chat/ChatLayout';
 import GroupDirectory from './features/groups/GroupDirectory';
+import GroupChat from './features/groups/GroupChat';
+import GroupSettings from './features/groups/GroupSettings';
 import Profile from './features/profile/Profile';
 import Settings from './features/settings/Settings';
+import SearchUsers from './features/search/SearchUsers';
+import Announcements from './features/announcements/Announcements';
 
 function App() {
   return (
@@ -24,8 +28,12 @@ function App() {
           <Route path="/feed" element={<Feed />} />
           <Route path="/chat/*" element={<ChatLayout />} />
           <Route path="/groups" element={<GroupDirectory />} />
+          <Route path="/groups/:groupId/chat" element={<GroupChat />} />
+          <Route path="/groups/:groupId/settings" element={<GroupSettings />} />
           <Route path="/profile/:id" element={<Profile />} />
           <Route path="/settings" element={<Settings />} />
+          <Route path="/search" element={<SearchUsers />} />
+          <Route path="/announcements" element={<Announcements />} />
           <Route path="/app" element={<Navigate to="/feed" replace />} />
         </Route>
       </Routes>

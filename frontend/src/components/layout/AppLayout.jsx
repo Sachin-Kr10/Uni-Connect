@@ -17,7 +17,9 @@ const AppLayout = () => {
   const isGroupsPage = location.pathname.startsWith('/groups');
   const isProfilePage = location.pathname.startsWith('/profile');
   const isSettingsPage = location.pathname.startsWith('/settings');
-  const shouldHideSuggestions = isChatPage || isGroupsPage || isProfilePage || isSettingsPage;
+  const isSearchPage = location.pathname.startsWith('/search');
+  const isAnnouncementsPage = location.pathname.startsWith('/announcements');
+  const shouldHideSuggestions = isChatPage || isGroupsPage || isProfilePage || isSettingsPage || isSearchPage || isAnnouncementsPage;
 
   if (loading) {
     return (
@@ -48,10 +50,12 @@ const AppLayout = () => {
         <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="18" x2="21" y2="18"/></svg>
       </button>
 
+      {/* Fixed Sidebar — desktop */}
       <Sidebar isOpen={isSidebarOpen} onClose={() => setIsSidebarOpen(false)} />
 
-      <main className="flex-1 flex flex-col min-w-0 overflow-hidden relative z-10">
-        <div className="flex-1 overflow-y-auto w-full pb-16 lg:pb-0">
+      {/* Scrollable Main Content — offset by sidebar width on desktop */}
+      <main className="flex-1 flex flex-col min-w-0 overflow-hidden relative z-10 lg:ml-64">
+        <div className="flex-1 overflow-y-auto w-full h-screen pb-16 lg:pb-0">
           <div className={cn(
             "mx-auto w-full flex justify-center gap-10",
             shouldHideSuggestions ? "max-w-7xl px-4 lg:px-8 py-4 sm:py-6" : "max-w-[1012px] pt-4 sm:pt-6"

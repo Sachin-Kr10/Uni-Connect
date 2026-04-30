@@ -9,6 +9,8 @@ const Conversation = require('./Conversation');
 const Message = require('./Message');
 const OTP = require('./OTP');
 const Story = require('./Story');
+const Connection = require('./Connection');
+const Notification = require('./Notification');
 
 // --- User & Post ---
 User.hasMany(Post, { foreignKey: 'userId', onDelete: 'CASCADE' });
@@ -42,6 +44,9 @@ GroupMember.belongsTo(User, { foreignKey: 'userId' });
 Group.hasMany(Post, { foreignKey: 'groupId', onDelete: 'CASCADE' });
 Post.belongsTo(Group, { foreignKey: 'groupId' });
 
+// Group <-> Conversation (club group chat)
+Group.belongsTo(Conversation, { foreignKey: 'conversationId', as: 'ChatConversation' });
+
 // --- Chat ---
 Conversation.hasMany(Message, { foreignKey: 'conversationId', onDelete: 'CASCADE' });
 Message.belongsTo(Conversation, { foreignKey: 'conversationId' });
@@ -49,9 +54,7 @@ Message.belongsTo(Conversation, { foreignKey: 'conversationId' });
 User.hasMany(Message, { foreignKey: 'senderId', onDelete: 'CASCADE' });
 Message.belongsTo(User, { foreignKey: 'senderId' });
 
-// Group/Direct Participants (Simple N:M via intersection table if needed, 
-// for simplicity in direct we just use conversations. 
-// For a fully fleshed out chat, we'd add 'ConversationParticipant'.
+// Group/Direct Participants
 const ConversationParticipant = sequelize.define('ConversationParticipant', {
   conversationId: { type: require('sequelize').DataTypes.UUID, allowNull: false },
   userId: { type: require('sequelize').DataTypes.UUID, allowNull: false }
@@ -67,6 +70,16 @@ ConversationParticipant.belongsTo(User, { foreignKey: 'userId' });
 User.hasMany(Story, { foreignKey: 'userId', onDelete: 'CASCADE' });
 Story.belongsTo(User, { foreignKey: 'userId' });
 
+// --- Connections ---
+Connection.belongsTo(User, { as: 'Sender', foreignKey: 'senderId' });
+Connection.belongsTo(User, { as: 'Receiver', foreignKey: 'receiverId' });
+User.hasMany(Connection, { as: 'SentConnections', foreignKey: 'senderId', onDelete: 'CASCADE' });
+User.hasMany(Connection, { as: 'ReceivedConnections', foreignKey: 'receiverId', onDelete: 'CASCADE' });
+
+// --- Notifications ---
+User.hasMany(Notification, { foreignKey: 'userId', onDelete: 'CASCADE' });
+Notification.belongsTo(User, { foreignKey: 'userId' });
+
 module.exports = {
   sequelize,
   User,
@@ -79,5 +92,7 @@ module.exports = {
   Message,
   ConversationParticipant,
   OTP,
-  Story
+  Story,
+  Connection,
+  Notification
 };

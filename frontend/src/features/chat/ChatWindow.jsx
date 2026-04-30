@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
+import { useParams, useNavigate, Link } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Send, Loader2, Phone, Video, MoreVertical, Plus, ChevronLeft, Image as ImageIcon, Smile } from 'lucide-react';
 import api from '../../services/api';
@@ -26,6 +26,15 @@ const ChatWindow = () => {
   const typingTimeoutRef = useRef(null);
   const imageInputRef = useRef(null);
 
+  // Fetch conversation details (participants) to reliably get the other user
+  const { data: conversations } = useQuery({
+    queryKey: ['conversations'],
+    queryFn: async () => {
+      const res = await api.get('/chat');
+      return res.data;
+    }
+  });
+
   const { data: messages = [], isLoading } = useQuery({
     queryKey: ['messages', conversationId],
     queryFn: async () => {
@@ -35,7 +44,14 @@ const ChatWindow = () => {
     enabled: !!conversationId
   });
 
-  const otherUser = messages.find(m => m.senderId !== user.id)?.User || { name: 'Chat Member' };
+  // Get the other user from conversation participants (reliable), not from messages
+  const currentConversation = conversations?.find(c => c.id === conversationId);
+  const otherParticipant = currentConversation?.ConversationParticipants?.find(p => p.userId !== user.id)?.User;
+  
+  // Fallback: try messages if conversation data not yet loaded
+  const otherUserFromMessages = messages.find(m => m.senderId !== user.id)?.User;
+  const otherUser = otherParticipant || otherUserFromMessages || { name: 'Loading...' };
+  
   const isOnline = onlineUsers?.includes(otherUser.id);
 
   useEffect(() => {
@@ -135,7 +151,7 @@ const ChatWindow = () => {
             <ChevronLeft className="w-5 h-5" />
           </motion.button>
           
-          <div className="relative group cursor-pointer">
+          <Link to={otherUser.id ? `/profile/${otherUser.id}` : '#'} className="relative group cursor-pointer">
             <img 
               src={otherUser.profileImage || getAvatar(null)} 
               alt={otherUser.name}
@@ -144,18 +160,21 @@ const ChatWindow = () => {
             {isOnline && (
               <div className="absolute -bottom-0.5 -right-0.5 w-3 h-3 bg-green-500 border-2 border-surface-container-lowest rounded-full z-10" />
             )}
-          </div>
+          </Link>
           
-          <div className="flex flex-col">
+          <Link to={otherUser.id ? `/profile/${otherUser.id}` : '#'} className="flex flex-col hover:opacity-80 transition-opacity">
             <h2 className="font-[family-name:var(--font-display)] font-bold text-sm text-on-surface">{otherUser.name}</h2>
             {typingUsers.size > 0 ? (
               <p className="text-[11px] text-primary-600 font-medium tracking-wide uppercase animate-pulse">Typing...</p>
             ) : (
-              <p className="text-[11px] text-primary-600 font-medium tracking-wide uppercase">
+              <p className={cn(
+                "text-[11px] font-medium tracking-wide uppercase",
+                isOnline ? "text-green-600" : "text-on-surface-variant"
+              )}>
                 {isOnline ? 'Active Now' : 'Offline'}
               </p>
             )}
-          </div>
+          </Link>
         </div>
         
         <div className="flex items-center gap-2">
@@ -198,7 +217,7 @@ const ChatWindow = () => {
               >
                 {!isMine && isLastInGroup && (
                   <img 
-                    src={otherUser.profileImage || getAvatar(null)} 
+                    src={msg.User?.profileImage || otherUser.profileImage || getAvatar(null)} 
                     alt="avatar" 
                     className="w-8 h-8 rounded-full object-cover shrink-0" 
                   />

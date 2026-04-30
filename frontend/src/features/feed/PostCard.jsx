@@ -7,7 +7,7 @@ import { twMerge } from 'tailwind-merge';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { motion, AnimatePresence } from 'framer-motion';
 import api from '../../services/api';
-import { Loader2, Heart, MessageCircle, Send, Bookmark, MoreHorizontal } from 'lucide-react';
+import { Loader2, Heart, MessageCircle, Send, Bookmark, MoreHorizontal, Trash2 } from 'lucide-react';
 
 const cn = (...inputs) => twMerge(clsx(inputs));
 
@@ -19,6 +19,7 @@ const PostCard = ({ post }) => {
   const [likesCount, setLikesCount] = useState(post.likesCount || 0);
   const [isBookmarked, setIsBookmarked] = useState(false);
   const [showMoreMenu, setShowMoreMenu] = useState(false);
+  const isMyPost = post.userId === user.id;
 
   // Comments State
   const [showComments, setShowComments] = useState(false);
@@ -121,6 +122,17 @@ const PostCard = ({ post }) => {
     },
   });
 
+  // Delete Post Mutation
+  const deleteMutation = useMutation({
+    mutationFn: () => api.delete(`/posts/${post.id}`),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['feed'] });
+      queryClient.invalidateQueries({ queryKey: ['user-posts'] });
+      showToast('Post deleted', 'success');
+    },
+    onError: () => showToast('Failed to delete post', 'error')
+  });
+
   const handleCommentSubmit = (e) => {
     e.preventDefault();
     if (!newComment.trim()) return;
@@ -171,9 +183,20 @@ const PostCard = ({ post }) => {
                   <button onClick={handleCopyLink} className="w-full text-left px-4 py-2.5 text-sm font-semibold text-on-surface hover:bg-surface-container transition-colors">
                     Copy Link
                   </button>
-                  <button onClick={() => { showToast('Post reported', 'info'); setShowMoreMenu(false); }} className="w-full text-left px-4 py-2.5 text-sm font-semibold text-secondary-600 hover:bg-secondary-50 transition-colors">
-                    Report
-                  </button>
+                  {isMyPost && (
+                    <button 
+                      onClick={() => { deleteMutation.mutate(); setShowMoreMenu(false); }} 
+                      className="w-full text-left px-4 py-2.5 text-sm font-semibold text-red-600 hover:bg-red-50 transition-colors flex items-center gap-2"
+                    >
+                      <Trash2 className="w-3.5 h-3.5" />
+                      Delete Post
+                    </button>
+                  )}
+                  {!isMyPost && (
+                    <button onClick={() => { showToast('Post reported', 'info'); setShowMoreMenu(false); }} className="w-full text-left px-4 py-2.5 text-sm font-semibold text-secondary-600 hover:bg-secondary-50 transition-colors">
+                      Report
+                    </button>
+                  )}
                 </motion.div>
               </>
             )}

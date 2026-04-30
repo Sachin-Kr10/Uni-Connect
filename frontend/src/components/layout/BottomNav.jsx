@@ -1,5 +1,6 @@
 import { Link, useLocation } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
+import { useSocket } from '../../context/SocketContext';
 import { getAvatar } from '../../utils/avatar';
 import { clsx } from 'clsx';
 import { twMerge } from 'tailwind-merge';
@@ -9,12 +10,13 @@ const cn = (...inputs) => twMerge(clsx(inputs));
 const BottomNav = () => {
   const location = useLocation();
   const { user } = useAuth();
+  const { notificationCount } = useSocket();
 
   const items = [
     { icon: 'home', path: '/feed', label: 'Home' },
     { icon: 'groups', path: '/groups', label: 'Communities' },
     { icon: 'add_box', path: '#create', label: 'Create', isAction: true },
-    { icon: 'chat_bubble', path: '/chat', label: 'Chat' },
+    { icon: 'notifications', path: '/announcements', label: 'Alerts', hasBadge: true },
     { icon: 'person', path: `/profile/${user?.id}`, label: 'Profile', isAvatar: true },
   ];
 
@@ -66,6 +68,12 @@ const BottomNav = () => {
                 )}
                 {isActive && !item.isAvatar && (
                   <div className="absolute -bottom-2 left-1/2 -translate-x-1/2 w-1 h-1 rounded-full bg-primary-600" />
+                )}
+                {/* Notification badge */}
+                {item.hasBadge && notificationCount > 0 && (
+                  <span className="absolute -top-1.5 -right-1.5 min-w-[16px] h-4 px-1 flex items-center justify-center rounded-full bg-primary-600 text-white text-[9px] font-black">
+                    {notificationCount > 99 ? '99+' : notificationCount}
+                  </span>
                 )}
               </div>
             </Link>

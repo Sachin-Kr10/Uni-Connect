@@ -1,4 +1,5 @@
-const { Post, User, Comment, Like, Group } = require('../models');
+const { Post, User, Comment, Like, Group, Connection } = require('../models');
+const { Op } = require('sequelize');
 
 // Create a new post
 const createPost = async (req, res) => {
@@ -15,7 +16,10 @@ const createPost = async (req, res) => {
 
     // Fetch with User info to return to frontend
     const postWithUser = await Post.findByPk(post.id, {
-      include: [{ model: User, attributes: ['id', 'name'] }]
+      include: [
+        { model: User, attributes: ['id', 'name', 'profileImage'] },
+        { model: Group, attributes: ['id', 'name', 'imageUrl'] }
+      ]
     });
 
     res.status(201).json(postWithUser);
@@ -25,27 +29,49 @@ const createPost = async (req, res) => {
   }
 };
 
-// Get Feed (cursor or page based pagination)
+// Get Feed — club posts visible to all, user posts visible to connections only
 const getFeed = async (req, res) => {
   try {
     const page = parseInt(req.query.page) || 1;
     const limit = parseInt(req.query.limit) || 10;
     const offset = (page - 1) * limit;
+    const reqUserId = req.user.id;
 
+    // Get accepted connection user IDs
+    const connections = await Connection.findAll({
+      where: {
+        status: 'accepted',
+        [Op.or]: [{ senderId: reqUserId }, { receiverId: reqUserId }]
+      },
+      attributes: ['senderId', 'receiverId']
+    });
+
+    const connectedUserIds = connections.map(c =>
+      c.senderId === reqUserId ? c.receiverId : c.senderId
+    );
+    // Include self
+    connectedUserIds.push(reqUserId);
+
+    // Feed: club posts (groupId not null) from any user + personal posts from connections
     const { count, rows } = await Post.findAndCountAll({
-      where: { groupId: null }, // Only public feed posts
+      where: {
+        [Op.or]: [
+          { groupId: { [Op.ne]: null } }, // All club posts
+          { groupId: null, userId: { [Op.in]: connectedUserIds } } // Connection posts + own posts
+        ]
+      },
       include: [
-        { model: User, attributes: ['id', 'name'] },
-        { model: Like, attributes: ['userId'] }
+        { model: User, attributes: ['id', 'name', 'profileImage'] },
+        { model: Like, attributes: ['userId'] },
+        { model: Group, attributes: ['id', 'name', 'imageUrl'] }
       ],
       order: [['createdAt', 'DESC']],
       limit,
       offset,
-      distinct: true // Required when including related models in findAndCountAll
+      distinct: true
     });
 
     // Format if current user liked it
-    const reqUserId = req.user.id;
     const posts = rows.map(post => {
       const p = post.toJSON();
       p.isLikedByMe = p.Likes.some(like => like.userId === reqUserId);
@@ -107,7 +133,7 @@ const addComment = async (req, res) => {
     await post.increment('commentsCount');
 
     const commentWithUser = await Comment.findByPk(comment.id, {
-      include: [{ model: User, attributes: ['id', 'name'] }]
+      include: [{ model: User, attributes: ['id', 'name', 'profileImage'] }]
     });
 
     // Emitting via Socket.IO for real-time comment update
@@ -126,7 +152,7 @@ const getComments = async (req, res) => {
     const { postId } = req.params;
     const comments = await Comment.findAll({
       where: { postId },
-      include: [{ model: User, attributes: ['id', 'name'] }],
+      include: [{ model: User, attributes: ['id', 'name', 'profileImage'] }],
       order: [['createdAt', 'DESC']]
     });
     res.json(comments);
@@ -141,10 +167,11 @@ const getUserPosts = async (req, res) => {
   try {
     const { userId } = req.params;
     const posts = await Post.findAll({
-      where: { userId, groupId: null }, // Only public posts for profile
+      where: { userId },
       include: [
-        { model: User, attributes: ['id', 'name'] },
-        { model: Like, attributes: ['userId'] }
+        { model: User, attributes: ['id', 'name', 'profileImage'] },
+        { model: Like, attributes: ['userId'] },
+        { model: Group, attributes: ['id', 'name', 'imageUrl'] }
       ],
       order: [['createdAt', 'DESC']]
     });
@@ -156,11 +183,34 @@ const getUserPosts = async (req, res) => {
   }
 };
 
+// Delete a post (owner only)
+const deletePost = async (req, res) => {
+  try {
+    const { postId } = req.params;
+    const userId = req.user.id;
+
+    const post = await Post.findByPk(postId);
+    if (!post) return res.status(404).json({ message: 'Post not found' });
+    if (post.userId !== userId) return res.status(403).json({ message: 'You can only delete your own posts' });
+
+    // Delete associated comments and likes first
+    await Comment.destroy({ where: { postId } });
+    await Like.destroy({ where: { postId } });
+    await post.destroy();
+
+    res.json({ message: 'Post deleted' });
+  } catch (error) {
+    console.error('Error deleting post:', error);
+    res.status(500).json({ message: 'Server error' });
+  }
+};
+
 module.exports = {
   createPost,
   getFeed,
   toggleLike,
   addComment,
   getComments,
-  getUserPosts
+  getUserPosts,
+  deletePost
 };

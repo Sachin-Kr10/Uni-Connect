@@ -48,7 +48,7 @@ const initSocket = (io) => {
 
     socket.join(`user:${userId}`);
 
-    // Rooms
+    // Rooms — conversations (direct + group)
     socket.on('join_conversation', (conversationId) => {
       socket.join(`conversation:${conversationId}`);
       console.log(`[Socket] User ${userId} joined conversation:${conversationId}`);
@@ -57,6 +57,17 @@ const initSocket = (io) => {
     socket.on('leave_conversation', (conversationId) => {
       socket.leave(`conversation:${conversationId}`);
       console.log(`[Socket] User ${userId} left conversation:${conversationId}`);
+    });
+
+    // Join group chat room
+    socket.on('join_group', (groupId) => {
+      socket.join(`group:${groupId}`);
+      console.log(`[Socket] User ${userId} joined group:${groupId}`);
+    });
+
+    socket.on('leave_group', (groupId) => {
+      socket.leave(`group:${groupId}`);
+      console.log(`[Socket] User ${userId} left group:${groupId}`);
     });
 
     // Typing Indicators

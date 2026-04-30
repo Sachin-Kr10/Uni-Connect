@@ -1,7 +1,9 @@
 import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { Search, Users, Plus, Loader2, ArrowRight, Globe, CheckCircle, X } from 'lucide-react';
+import { Search, Users, Loader2, ArrowRight, Globe, CheckCircle, X, MessageCircle } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
 import api from '../../services/api';
+import { useAuth } from '../../context/AuthContext';
 import { useToast } from '../../context/ToastContext';
 import { motion, AnimatePresence } from 'framer-motion';
 import { clsx } from 'clsx';
@@ -12,12 +14,15 @@ const cn = (...inputs) => twMerge(clsx(inputs));
 const GroupDirectory = () => {
   const queryClient = useQueryClient();
   const { showToast } = useToast();
+  const { user } = useAuth();
+  const navigate = useNavigate();
   const [searchQuery, setSearchQuery] = useState('');
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [newGroup, setNewGroup] = useState({ name: '', description: '' });
-  const [joinedGroups, setJoinedGroups] = useState(new Set());
 
-  // Fetch Groups
+  const isClubRole = user?.role === 'club' || user?.role === 'admin';
+
+  // Fetch Groups (backend now returns isMember and membersCount)
   const { data: groups, isLoading } = useQuery({
     queryKey: ['groups'],
     queryFn: async () => {
@@ -29,9 +34,8 @@ const GroupDirectory = () => {
   // Join Group Mutation
   const joinGroupMutation = useMutation({
     mutationFn: (groupId) => api.post(`/groups/${groupId}/join`),
-    onSuccess: (data, groupId) => {
+    onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['groups'] });
-      setJoinedGroups(prev => new Set([...prev, groupId]));
       showToast('Joined community!', 'success');
     },
     onError: (err) => {
@@ -53,6 +57,11 @@ const GroupDirectory = () => {
       showToast(err.response?.data?.message || 'Failed to create', 'error');
     }
   });
+
+  // Navigate to group chat
+  const handleJoinedClick = (groupId) => {
+    navigate(`/groups/${groupId}/chat`);
+  };
 
   const filteredGroups = groups?.filter(g => g.name.toLowerCase().includes(searchQuery.toLowerCase())) || [];
 
@@ -76,12 +85,15 @@ const GroupDirectory = () => {
                 Discover Communities
               </h1>
             </div>
-            <button 
-              onClick={() => setShowCreateModal(true)}
-              className="bg-gradient-to-r from-primary-600 to-tertiary-500 text-white px-8 py-4 rounded-full font-[family-name:var(--font-display)] font-bold shadow-2xl hover:scale-105 active:scale-95 transition-all w-full md:w-auto"
-            >
-              Create a Club
-            </button>
+            {/* Only show Create button for club/admin role */}
+            {isClubRole && (
+              <button 
+                onClick={() => setShowCreateModal(true)}
+                className="bg-gradient-to-r from-primary-600 to-tertiary-500 text-white px-8 py-4 rounded-full font-[family-name:var(--font-display)] font-bold shadow-2xl hover:scale-105 active:scale-95 transition-all w-full md:w-auto"
+              >
+                Create a Club
+              </button>
+            )}
           </div>
         </div>
       </section>
@@ -114,7 +126,7 @@ const GroupDirectory = () => {
           <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-8">
             <AnimatePresence mode="popLayout">
               {filteredGroups.map((group, index) => {
-                const isJoined = joinedGroups.has(group.id);
+                const isJoined = group.isMember;
                 return (
                   <motion.div 
                     layout
@@ -127,7 +139,7 @@ const GroupDirectory = () => {
                   >
                     <div className="h-48 relative overflow-hidden bg-surface-container">
                       <img 
-                        src={`https://images.unsplash.com/photo-${1522202176988 + index}-670faddee67d?auto=format&fit=crop&q=80&w=600`}
+                        src={group.imageUrl || `https://images.unsplash.com/photo-${1522202176988 + index}-670faddee67d?auto=format&fit=crop&q=80&w=600`}
                         alt={group.name} 
                         className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-105" 
                       />
@@ -162,27 +174,32 @@ const GroupDirectory = () => {
                       </p>
 
                       <div className="mt-auto">
-                        <motion.button 
-                          whileHover={{ scale: 1.02 }}
-                          whileTap={{ scale: 0.98 }}
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            if (!isJoined) joinGroupMutation.mutate(group.id);
-                          }}
-                          disabled={joinGroupMutation.isPending || isJoined}
-                          className={cn(
-                            "w-full flex items-center justify-center gap-2 py-4 rounded-[1.5rem] font-[family-name:var(--font-display)] font-bold text-sm tracking-wide transition-colors",
-                            isJoined 
-                              ? "bg-green-50 text-green-700 cursor-default"
-                              : "bg-surface-container-low hover:bg-primary-50 text-primary-700"
-                          )}
-                        >
-                          {joinGroupMutation.isPending ? <Loader2 className="w-4 h-4 animate-spin mx-auto" /> : isJoined ? (
-                            <><CheckCircle className="w-4 h-4" /> Joined</>
-                          ) : (
-                            <>Join Community <ArrowRight className="w-4 h-4 ml-1" /></>
-                          )}
-                        </motion.button>
+                        {isJoined ? (
+                          <motion.button 
+                            whileHover={{ scale: 1.02 }}
+                            whileTap={{ scale: 0.98 }}
+                            onClick={() => handleJoinedClick(group.id)}
+                            className="w-full flex items-center justify-center gap-2 py-4 rounded-[1.5rem] font-[family-name:var(--font-display)] font-bold text-sm tracking-wide bg-green-50 text-green-700 hover:bg-green-100 transition-colors"
+                          >
+                            <MessageCircle className="w-4 h-4" />
+                            Joined — Open Chat
+                          </motion.button>
+                        ) : (
+                          <motion.button 
+                            whileHover={{ scale: 1.02 }}
+                            whileTap={{ scale: 0.98 }}
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              joinGroupMutation.mutate(group.id);
+                            }}
+                            disabled={joinGroupMutation.isPending}
+                            className="w-full flex items-center justify-center gap-2 py-4 rounded-[1.5rem] font-[family-name:var(--font-display)] font-bold text-sm tracking-wide bg-surface-container-low hover:bg-primary-50 text-primary-700 transition-colors"
+                          >
+                            {joinGroupMutation.isPending ? <Loader2 className="w-4 h-4 animate-spin mx-auto" /> : (
+                              <>Join Community <ArrowRight className="w-4 h-4 ml-1" /></>
+                            )}
+                          </motion.button>
+                        )}
                       </div>
                     </div>
                   </motion.div>

@@ -1,4 +1,4 @@
-const { User, Post } = require('../models');
+const { User, Post, Connection } = require('../models');
 const { Op } = require('sequelize');
 
 // Search users by name
@@ -16,8 +16,8 @@ const searchUsers = async (req, res) => {
           [Op.ne]: req.user.id
         }
       },
-      attributes: ['id', 'name', 'role', 'profileImage'],
-      limit: 10
+      attributes: ['id', 'name', 'role', 'profileImage', 'bio'],
+      limit: 20
     });
 
     res.json(users);
@@ -27,15 +27,28 @@ const searchUsers = async (req, res) => {
   }
 };
 
-// Get suggested users to follow
+// Get suggested users (exclude already connected)
 const getSuggestions = async (req, res) => {
   try {
     const userId = req.user.id;
+
+    // Get connected user IDs
+    const connections = await Connection.findAll({
+      where: {
+        status: 'accepted',
+        [Op.or]: [{ senderId: userId }, { receiverId: userId }]
+      },
+      attributes: ['senderId', 'receiverId']
+    });
+
+    const connectedIds = connections.map(c =>
+      c.senderId === userId ? c.receiverId : c.senderId
+    );
+    connectedIds.push(userId); // Exclude self
+
     const suggestions = await User.findAll({
       where: {
-        id: {
-          [Op.ne]: userId
-        }
+        id: { [Op.notIn]: connectedIds }
       },
       attributes: ['id', 'name', 'role', 'profileImage'],
       limit: 5,
@@ -49,7 +62,7 @@ const getSuggestions = async (req, res) => {
   }
 };
 
-// Get user profile by ID
+// Get user profile by ID (with connection count)
 const getUserProfile = async (req, res) => {
   try {
     const { id } = req.params;
@@ -64,9 +77,18 @@ const getUserProfile = async (req, res) => {
     // Get post count
     const postCount = await Post.count({ where: { userId: id, groupId: null } });
 
+    // Get connection count (accepted connections)
+    const connectionCount = await Connection.count({
+      where: {
+        status: 'accepted',
+        [Op.or]: [{ senderId: id }, { receiverId: id }]
+      }
+    });
+
     res.json({
       ...user.toJSON(),
-      postCount
+      postCount,
+      connectionCount
     });
   } catch (error) {
     console.error('Error fetching user profile:', error);
@@ -98,9 +120,37 @@ const updateProfile = async (req, res) => {
   }
 };
 
+// Get all users (for discovery/search page)
+const getAllUsers = async (req, res) => {
+  try {
+    const userId = req.user.id;
+    const page = parseInt(req.query.page) || 1;
+    const limit = parseInt(req.query.limit) || 20;
+    const offset = (page - 1) * limit;
+
+    const { count, rows } = await User.findAndCountAll({
+      where: { id: { [Op.ne]: userId } },
+      attributes: ['id', 'name', 'role', 'profileImage', 'bio'],
+      order: [['createdAt', 'DESC']],
+      limit,
+      offset
+    });
+
+    res.json({
+      users: rows,
+      totalPages: Math.ceil(count / limit),
+      currentPage: page
+    });
+  } catch (error) {
+    console.error('Error fetching all users:', error);
+    res.status(500).json({ message: 'Server error' });
+  }
+};
+
 module.exports = {
   searchUsers,
   getSuggestions,
   getUserProfile,
-  updateProfile
+  updateProfile,
+  getAllUsers
 };

@@ -12,8 +12,6 @@ const getOrCreateDirectConversation = async (req, res) => {
     }
 
     // Check if conversation already exists where both are participants and type is direct
-    // Since we don't have a complex query ready for many-to-many intersection directly easily,
-    // let's do it in two steps.
     const currentUserConversations = await ConversationParticipant.findAll({
       where: { userId: currentUserId },
       attributes: ['conversationId']
@@ -64,16 +62,17 @@ const getUserConversations = async (req, res) => {
     const conversationIds = participations.map(p => p.conversationId);
 
     const conversations = await Conversation.findAll({
-      where: { id: conversationIds },
+      where: { id: conversationIds, type: 'direct' },
       include: [
         {
           model: ConversationParticipant,
-          include: [{ model: User, attributes: ['id', 'name'] }]
+          include: [{ model: User, attributes: ['id', 'name', 'profileImage'] }]
         },
         {
           model: Message, // Get the latest message
           limit: 1,
-          order: [['createdAt', 'DESC']]
+          order: [['createdAt', 'DESC']],
+          include: [{ model: User, attributes: ['id', 'name', 'profileImage'] }]
         }
       ],
       order: [['updatedAt', 'DESC']]
@@ -103,7 +102,7 @@ const getMessages = async (req, res) => {
 
     const messages = await Message.findAll({
       where: { conversationId },
-      include: [{ model: User, attributes: ['id', 'name'] }],
+      include: [{ model: User, attributes: ['id', 'name', 'profileImage'] }],
       order: [['createdAt', 'ASC']]
     });
 
@@ -140,7 +139,7 @@ const sendMessage = async (req, res) => {
     await Conversation.update({ updatedAt: new Date() }, { where: { id: conversationId } });
 
     const messageWithUser = await Message.findByPk(message.id, {
-      include: [{ model: User, attributes: ['id', 'name'] }]
+      include: [{ model: User, attributes: ['id', 'name', 'profileImage'] }]
     });
 
     // Emit real-time event

@@ -8,6 +8,7 @@ router.use(verifyAccessToken);
 
 router.get('/search', userController.searchUsers);
 router.get('/suggestions', userController.getSuggestions);
+router.get('/all', userController.getAllUsers);
 router.get('/:id', userController.getUserProfile);
 router.put('/profile', userController.updateProfile);
 

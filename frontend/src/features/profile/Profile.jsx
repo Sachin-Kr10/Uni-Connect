@@ -2,9 +2,9 @@ import { useState, useRef } from 'react';
 import { useAuth } from '../../context/AuthContext';
 import { useToast } from '../../context/ToastContext';
 import { getAvatar } from '../../utils/avatar';
-import { Mail, Calendar, Edit3, Award, Grid, Bookmark, Tag, Loader2, MapPin, LogOut, MessageSquare, Heart, MessageCircle, Camera } from 'lucide-react';
+import { Mail, Calendar, Edit3, Award, Grid, Bookmark, Tag, Loader2, MapPin, LogOut, MessageSquare, Heart, MessageCircle, Camera, UserPlus, UserCheck, Clock, UserX, Send } from 'lucide-react';
 import { motion } from 'framer-motion';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import api from '../../services/api';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 
@@ -12,6 +12,7 @@ const Profile = () => {
   const { user: currentUser, logout, updateUser } = useAuth();
   const { showToast } = useToast();
   const navigate = useNavigate();
+  const queryClient = useQueryClient();
   const { id: userId } = useParams();
   const fileInputRef = useRef(null);
   const [activeTab, setActiveTab] = useState('posts');
@@ -38,6 +39,38 @@ const Profile = () => {
     enabled: !!targetId
   });
 
+  // Connection status
+  const { data: connectionStatus } = useQuery({
+    queryKey: ['connection-status', targetId],
+    queryFn: async () => {
+      const res = await api.get(`/connections/status/${targetId}`);
+      return res.data;
+    },
+    enabled: !!targetId && !isOwnProfile
+  });
+
+  // Send connection request
+  const connectMutation = useMutation({
+    mutationFn: () => api.post('/connections/request', { receiverId: targetId }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['connection-status', targetId] });
+      showToast('Connection request sent!', 'success');
+    },
+    onError: (err) => {
+      showToast(err.response?.data?.message || 'Failed to send request', 'error');
+    }
+  });
+
+  // Remove connection
+  const disconnectMutation = useMutation({
+    mutationFn: () => api.delete(`/connections/${connectionStatus?.connectionId}`),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['connection-status', targetId] });
+      queryClient.invalidateQueries({ queryKey: ['user-profile', targetId] });
+      showToast('Connection removed', 'info');
+    }
+  });
+
   const displayUser = profileData || currentUser;
   const avatar = profileData?.profileImage || (isOwnProfile ? getAvatar(currentUser) : getAvatar(profileData));
 
@@ -53,6 +86,7 @@ const Profile = () => {
       const url = res.data.url;
       await api.put('/users/profile', { profileImage: url });
       updateUser({ profileImage: url });
+      queryClient.invalidateQueries({ queryKey: ['user-profile', targetId] });
       showToast('Profile photo updated!', 'success');
     } catch (err) {
       showToast('Failed to upload image', 'error');
@@ -62,6 +96,101 @@ const Profile = () => {
   const handleLogout = async () => {
     await logout();
     navigate('/login');
+  };
+
+  const renderConnectionButton = () => {
+    if (isOwnProfile) {
+      return (
+        <>
+          <button 
+            onClick={() => navigate('/settings')}
+            className="flex-1 sm:flex-none flex items-center justify-center gap-2 px-8 py-3 bg-on-surface hover:opacity-90 text-surface rounded-full font-bold text-sm transition-all shadow-lg active:scale-95 font-[family-name:var(--font-display)]"
+          >
+            <Edit3 className="w-4 h-4" />
+            Edit Profile
+          </button>
+          <button 
+            onClick={handleLogout}
+            className="p-3 bg-surface-container-lowest hover:bg-surface-container-high rounded-full text-on-surface-variant transition-all active:scale-90 shadow-sm border-0"
+          >
+            <LogOut className="w-5 h-5" />
+          </button>
+        </>
+      );
+    }
+
+    const status = connectionStatus?.status;
+
+    if (status === 'accepted') {
+      return (
+        <>
+          <button
+            onClick={() => disconnectMutation.mutate()}
+            disabled={disconnectMutation.isPending}
+            className="flex-1 sm:flex-none flex items-center justify-center gap-2 px-8 py-3 bg-green-50 text-green-700 rounded-full font-bold text-sm transition-all shadow-sm active:scale-95 font-[family-name:var(--font-display)] hover:bg-green-100"
+          >
+            <UserCheck className="w-4 h-4" />
+            Connected
+          </button>
+          <button
+            onClick={async () => {
+              try {
+                const res = await api.post('/chat/direct', { targetUserId: targetId });
+                navigate(`/chat/${res.data.id}`);
+              } catch (err) {
+                showToast('Failed to open chat', 'error');
+              }
+            }}
+            className="flex-1 sm:flex-none flex items-center justify-center gap-2 px-8 py-3 bg-gradient-to-r from-primary-600 to-tertiary-500 text-white rounded-full font-bold text-sm transition-all shadow-lg shadow-primary-500/20 active:scale-95 font-[family-name:var(--font-display)] hover:shadow-primary-500/40"
+          >
+            <Send className="w-4 h-4" />
+            Message
+          </button>
+        </>
+      );
+    }
+
+    if (status === 'pending') {
+      if (connectionStatus?.isSender) {
+        return (
+          <button
+            disabled
+            className="flex-1 sm:flex-none flex items-center justify-center gap-2 px-8 py-3 bg-surface-container-low text-on-surface-variant rounded-full font-bold text-sm cursor-default font-[family-name:var(--font-display)]"
+          >
+            <Clock className="w-4 h-4" />
+            Pending
+          </button>
+        );
+      }
+      // Receiver can accept from here
+      return (
+        <button
+          onClick={() => {
+            api.put(`/connections/${connectionStatus.connectionId}/accept`).then(() => {
+              queryClient.invalidateQueries({ queryKey: ['connection-status', targetId] });
+              queryClient.invalidateQueries({ queryKey: ['user-profile', targetId] });
+              showToast('Connection accepted!', 'success');
+            });
+          }}
+          className="flex-1 sm:flex-none flex items-center justify-center gap-2 px-8 py-3 bg-gradient-to-r from-primary-600 to-tertiary-500 text-white rounded-full font-bold text-sm transition-all shadow-lg active:scale-95 font-[family-name:var(--font-display)]"
+        >
+          <UserCheck className="w-4 h-4" />
+          Accept Request
+        </button>
+      );
+    }
+
+    // None or declined
+    return (
+      <button
+        onClick={() => connectMutation.mutate()}
+        disabled={connectMutation.isPending}
+        className="flex-1 sm:flex-none flex items-center justify-center gap-2 px-8 py-3 bg-gradient-to-r from-primary-600 to-tertiary-500 text-white rounded-full font-bold text-sm transition-all shadow-lg active:scale-95 font-[family-name:var(--font-display)] disabled:opacity-50"
+      >
+        {connectMutation.isPending ? <Loader2 className="w-4 h-4 animate-spin" /> : <UserPlus className="w-4 h-4" />}
+        Connect
+      </button>
+    );
   };
 
   return (
@@ -126,27 +255,7 @@ const Profile = () => {
           </div>
 
           <div className="flex items-center justify-center sm:justify-end gap-3 pb-2 w-full sm:w-auto mt-4 sm:mt-0">
-            {isOwnProfile ? (
-              <>
-                <button 
-                  onClick={() => navigate('/settings')}
-                  className="flex-1 sm:flex-none flex items-center justify-center gap-2 px-8 py-3 bg-on-surface hover:opacity-90 text-surface rounded-full font-bold text-sm transition-all shadow-lg active:scale-95 font-[family-name:var(--font-display)]"
-                >
-                  <Edit3 className="w-4 h-4" />
-                  Edit Profile
-                </button>
-                <button 
-                  onClick={handleLogout}
-                  className="p-3 bg-surface-container-lowest hover:bg-surface-container-high rounded-full text-on-surface-variant transition-all active:scale-90 shadow-sm border-0"
-                >
-                  <LogOut className="w-5 h-5" />
-                </button>
-              </>
-            ) : (
-              <button className="flex-1 sm:flex-none flex items-center justify-center gap-2 px-8 py-3 bg-gradient-to-r from-primary-600 to-tertiary-500 text-white rounded-full font-bold text-sm transition-all shadow-lg active:scale-95 font-[family-name:var(--font-display)]">
-                Follow
-              </button>
-            )}
+            {renderConnectionButton()}
           </div>
         </div>
       </div>
@@ -165,12 +274,8 @@ const Profile = () => {
               <span className="text-xs font-bold text-on-surface-variant uppercase tracking-widest">Posts</span>
            </div>
            <div className="flex flex-col">
-              <span className="text-3xl font-black text-on-surface font-[family-name:var(--font-display)]">—</span>
-              <span className="text-xs font-bold text-on-surface-variant uppercase tracking-widest">Followers</span>
-           </div>
-           <div className="flex flex-col">
-              <span className="text-3xl font-black text-on-surface font-[family-name:var(--font-display)]">—</span>
-              <span className="text-xs font-bold text-on-surface-variant uppercase tracking-widest">Following</span>
+              <span className="text-3xl font-black text-on-surface font-[family-name:var(--font-display)]">{profileData?.connectionCount || 0}</span>
+              <span className="text-xs font-bold text-on-surface-variant uppercase tracking-widest">Connections</span>
            </div>
         </div>
       </div>

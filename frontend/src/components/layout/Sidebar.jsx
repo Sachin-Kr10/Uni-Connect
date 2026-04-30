@@ -1,7 +1,8 @@
 import { Link, useLocation, useNavigate } from 'react-router-dom';
-import { Home, MessageSquare, Users, User, Settings, LogOut, X, Moon, Sun } from 'lucide-react';
+import { Home, MessageSquare, Users, Search, Bell, Settings, Moon, Sun, X } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import { useTheme } from '../../context/ThemeContext';
+import { useSocket } from '../../context/SocketContext';
 import { getAvatar } from '../../utils/avatar';
 import { clsx } from 'clsx';
 import { twMerge } from 'tailwind-merge';
@@ -9,8 +10,9 @@ import { twMerge } from 'tailwind-merge';
 const cn = (...inputs) => twMerge(clsx(inputs));
 
 const Sidebar = ({ isOpen, onClose }) => {
-  const { user, logout } = useAuth();
+  const { user } = useAuth();
   const { isDark, toggleTheme } = useTheme();
+  const { notificationCount } = useSocket();
   const location = useLocation();
   const navigate = useNavigate();
 
@@ -18,14 +20,10 @@ const Sidebar = ({ isOpen, onClose }) => {
     { label: 'Feed', icon: Home, path: '/feed' },
     { label: 'Messages', icon: MessageSquare, path: '/chat' },
     { label: 'Communities', icon: Users, path: '/groups' },
-    { label: 'My Profile', icon: User, path: `/profile/${user?.id}` },
+    { label: 'Search', icon: Search, path: '/search' },
+    { label: 'Announcements', icon: Bell, path: '/announcements', badge: notificationCount || 0 },
     { label: 'Settings', icon: Settings, path: '/settings' },
   ];
-
-  const handleLogout = async () => {
-    await logout();
-    navigate('/login');
-  };
 
   const SidebarContent = () => (
     <div className="flex flex-col h-full bg-surface-lowest/80 backdrop-blur-2xl lg:bg-transparent lg:backdrop-blur-none p-5 w-72 lg:w-full">
@@ -44,25 +42,8 @@ const Sidebar = ({ isOpen, onClose }) => {
         </button>
       </div>
 
-      {/* User Quick Info */}
-      <div className="flex items-center gap-3 px-3 py-4 mt-4 mb-2 bg-surface-container/40 rounded-2xl">
-        <img
-          src={getAvatar(user)}
-          alt="Profile"
-          className="w-10 h-10 rounded-full object-cover bg-surface-container"
-        />
-        <div className="flex-1 min-w-0">
-          <h4 className="font-bold text-sm font-[family-name:var(--font-display)] tracking-tight truncate text-on-surface">
-            {user?.name}
-          </h4>
-          <p className="text-[10px] text-on-surface-variant font-medium truncate">
-            {user?.email}
-          </p>
-        </div>
-      </div>
-
       {/* Navigation */}
-      <div className="flex-1 space-y-1.5 mt-4">
+      <div className="flex-1 space-y-1.5 mt-6">
         {navItems.map((item) => {
           const isActive = item.path === `/profile/${user?.id}` 
             ? location.pathname === item.path
@@ -83,6 +64,14 @@ const Sidebar = ({ isOpen, onClose }) => {
                 <item.icon className={cn("w-5 h-5 transition-transform duration-300", isActive ? "scale-110" : "group-hover:scale-110")} />
                 {item.label}
               </div>
+              {item.badge > 0 && (
+                <span className={cn(
+                  "min-w-[20px] h-5 px-1.5 flex items-center justify-center rounded-full text-[11px] font-black",
+                  isActive ? "bg-white/25 text-white" : "bg-primary-600 text-white"
+                )}>
+                  {item.badge > 99 ? '99+' : item.badge}
+                </span>
+              )}
             </Link>
           );
         })}
@@ -119,15 +108,27 @@ const Sidebar = ({ isOpen, onClose }) => {
         </button>
       </div>
 
-      {/* Logout */}
+      {/* Profile Section at Bottom (replaces logout) */}
       <div className="mt-auto pt-2">
-        <button
-          onClick={handleLogout}
-          className="w-full flex items-center gap-3 px-4 py-3 text-on-surface-variant font-semibold hover:bg-secondary-50 hover:text-secondary-600 rounded-2xl transition-colors group"
+        <Link
+          to={`/profile/${user?.id}`}
+          onClick={onClose}
+          className="flex items-center gap-3 px-3 py-4 bg-surface-container/40 rounded-2xl hover:bg-surface-container/60 transition-colors group"
         >
-          <LogOut className="w-5 h-5 group-hover:text-secondary-500 transition-colors" />
-          Log Out
-        </button>
+          <img
+            src={getAvatar(user)}
+            alt="Profile"
+            className="w-10 h-10 rounded-full object-cover bg-surface-container ring-2 ring-primary-500/20 group-hover:ring-primary-500/40 transition-all"
+          />
+          <div className="flex-1 min-w-0">
+            <h4 className="font-bold text-sm font-[family-name:var(--font-display)] tracking-tight truncate text-on-surface">
+              {user?.name}
+            </h4>
+            <p className="text-[10px] text-on-surface-variant font-medium truncate">
+              View your profile
+            </p>
+          </div>
+        </Link>
       </div>
     </div>
   );
@@ -142,9 +143,9 @@ const Sidebar = ({ isOpen, onClose }) => {
         />
       )}
 
-      {/* Sidebar Container */}
+      {/* Sidebar Container — fixed on desktop */}
       <aside className={cn(
-        "fixed inset-y-0 left-0 z-50 transform lg:transform-none lg:static lg:block transition-transform duration-300 ease-in-out",
+        "fixed inset-y-0 left-0 z-50 transition-transform duration-300 ease-in-out",
         isOpen ? "translate-x-0" : "-translate-x-full lg:translate-x-0",
         "w-72 lg:w-64"
       )}>

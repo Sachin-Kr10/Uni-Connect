@@ -78,7 +78,7 @@ const Register = () => {
                   type="text"
                   required
                   className="w-full pl-11 pr-4 py-3.5 bg-surface-container-low border border-outline-variant/20 rounded-xl focus:ring-2 focus:ring-primary-500/50 focus:border-primary-500 focus:bg-surface-lowest transition-all outline-none text-on-surface"
-                  placeholder="John Doe"
+                  placeholder="Your Name"
                   value={formData.name}
                   onChange={(e) => setFormData({ ...formData, name: e.target.value })}
                 />
